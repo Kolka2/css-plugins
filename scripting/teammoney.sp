@@ -49,7 +49,7 @@ public Plugin myinfo = {
     author      = "Kolka2",
     description = "Shows team money and grenades in KeyHintText during freeze time",
     version     = PLUGIN_VERSION,
-    url         = ""
+    url         = "https://github.com/Kolka2/css-plugins"
 };
 
 ConVar g_cvEnabled;

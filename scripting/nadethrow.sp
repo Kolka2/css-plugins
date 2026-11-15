@@ -50,7 +50,7 @@ public Plugin myinfo = {
     author      = "Kolka2",
     description = "Left / left+right / right click grenade throws of different strength",
     version     = PLUGIN_VERSION,
-    url         = ""
+    url         = "https://github.com/Kolka2/css-plugins"
 };
 
 ConVar g_cvEnabled;
