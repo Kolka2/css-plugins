@@ -24,7 +24,7 @@
 #include <sdktools>
 #include <cstrike>
 
-#define PLUGIN_VERSION "2.0.0"
+#define PLUGIN_VERSION "2.0.1"
 
 // User message data in Source is limited to ~255 bytes; KeyHintText adds a string
 // count byte and a terminating zero. Keep a margin.
