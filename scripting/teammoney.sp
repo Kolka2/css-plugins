@@ -68,6 +68,9 @@ Handle g_hRefreshTimer;
 Handle g_hStopTimer;
 Handle g_hHideTimer;
 bool g_bActive;
+bool g_bLate;
+bool g_bMapStarted;
+bool g_bLoggedSendError;
 
 // Who has been shown the HUD in the current display (to hide it only for them).
 bool g_bShownTo[MAXPLAYERS + 1];
@@ -97,6 +100,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
         strcopy(error, err_max, "This plugin supports Counter-Strike: Source only.");
         return APLRes_Failure;
     }
+    g_bLate = late;
     return APLRes_Success;
 }
 
@@ -128,7 +132,25 @@ public void OnPluginStart() {
     HookEvent("round_freeze_end", Event_RoundFreezeEnd, EventHookMode_PostNoCopy);
 }
 
+public void OnAllPluginsLoaded() {
+    LogMessage("[teammoney] %s, optional libraries: none", PLUGIN_VERSION);
+}
+
+public void OnMapStart() {
+    g_bMapStarted = true;
+
+    // Late load: there are no per-client hooks to restore, but if the plugin was (re)loaded
+    // during freeze time (e.g. a long pause), start showing right away, not from the next round.
+    if (g_bLate) {
+        g_bLate = false;
+        if (g_cvEnabled.BoolValue && IsFreezePeriod()) {
+            StartDisplay();
+        }
+    }
+}
+
 public void OnMapEnd() {
+    g_bMapStarted = false;
     StopDisplay(Stop_Silent);
 }
 
@@ -143,7 +165,18 @@ public void OnClientDisconnect(int client) {
 public void OnEnabledChanged(ConVar convar, const char[] oldValue, const char[] newValue) {
     if (!convar.BoolValue) {
         StopDisplay(Stop_HideDeferred);
+    } else if (!g_bActive && g_bMapStarted && IsFreezePeriod()) {
+        StartDisplay();
     }
+}
+
+bool IsFreezePeriod() {
+    // CSS-VERIFY: m_bFreezePeriod is readable through GameRules_GetProp in CS:S and is 1
+    // from round_start until round_freeze_end.
+    if (FindEntityByClassname(-1, "cs_gamerules") == -1) {
+        return false;
+    }
+    return GameRules_GetProp("m_bFreezePeriod") != 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -178,6 +211,7 @@ void StartDisplay() {
     StopDisplay(Stop_Silent);
 
     g_bActive = true;
+    g_bLoggedSendError = false;
     g_hRefreshTimer = CreateTimer(g_cvInterval.FloatValue, Timer_Refresh, _, TIMER_REPEAT);
     LogDebug("display started");
     Refresh();
@@ -442,7 +476,11 @@ void TruncateUtf8(char[] str, int maxChars) {
 bool SendKeyHint(int client, const char[] text, bool reliable) {
     Handle msg = StartMessageOne("KeyHintText", client, reliable ? USERMSG_RELIABLE : 0);
     if (msg == null) {
-        LogError("Failed to start KeyHintText message for client %d", client);
+        // Once per display: this runs for every viewer on every refresh.
+        if (!g_bLoggedSendError) {
+            g_bLoggedSendError = true;
+            LogError("Failed to start KeyHintText message for client %d", client);
+        }
         return false;
     }
 
