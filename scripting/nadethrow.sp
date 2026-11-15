@@ -220,7 +220,7 @@ void Announce(int client, int userid) {
         }
         return;
     }
-    PrintToChat(client, "\x04[NadeThrow]\x01 %t", "Announce");
+    PrintToChat(client, "\x01[\x04NadeThrow\x01] %t", "Announce");
 }
 
 // ---------------------------------------------------------------------------
