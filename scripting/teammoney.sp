@@ -14,7 +14,7 @@
  *  - grenades are counted from the player's weapons and their ammo type, not hardcoded indices;
  *  - dead players show money only;
  *  - team players are sorted by money;
- *  - refreshes are sent unreliably, the hide message reliably.
+ *  - refreshes are sent unreliably, the hide message reliably and after a short delay.
  */
 
 #pragma semicolon 1
@@ -35,6 +35,10 @@
 // Languages cached per refresh; viewers beyond that get their text built individually.
 #define MAX_CACHED_LANGS 8
 
+// Delay between the last refresh and the hide message. Must exceed the longest gap between
+// packets to a client (1 / sv_minupdaterate, 0.1 s by default), see StopDisplay.
+#define HIDE_DELAY 0.2
+
 // Fallback m_iAmmo indices for CS:S, used if the weapon's ammo type cannot be read.
 #define AMMO_HEGRENADE_FALLBACK  11
 #define AMMO_FLASHBANG_FALLBACK  12
@@ -54,8 +58,15 @@ ConVar g_cvExtraTime;
 ConVar g_cvInterval;
 ConVar g_cvNameLength;
 
+enum StopMode {
+    Stop_Silent,        // new round, map end: nothing to hide
+    Stop_HideNow,       // plugin unload: timers will not survive
+    Stop_HideDeferred   // normal end of the display
+};
+
 Handle g_hRefreshTimer;
 Handle g_hStopTimer;
+Handle g_hHideTimer;
 bool g_bActive;
 
 // Who has been shown the HUD in the current display (to hide it only for them).
@@ -118,11 +129,11 @@ public void OnPluginStart() {
 }
 
 public void OnMapEnd() {
-    StopDisplay(false);
+    StopDisplay(Stop_Silent);
 }
 
 public void OnPluginEnd() {
-    StopDisplay(true);
+    StopDisplay(Stop_HideNow);
 }
 
 public void OnClientDisconnect(int client) {
@@ -131,7 +142,7 @@ public void OnClientDisconnect(int client) {
 
 public void OnEnabledChanged(ConVar convar, const char[] oldValue, const char[] newValue) {
     if (!convar.BoolValue) {
-        StopDisplay(true);
+        StopDisplay(Stop_HideDeferred);
     }
 }
 
@@ -154,7 +165,7 @@ public void Event_RoundFreezeEnd(Event event, const char[] name, bool dontBroadc
     delete g_hStopTimer;
     float extra = g_cvExtraTime.FloatValue;
     if (extra <= 0.0) {
-        StopDisplay(true);
+        StopDisplay(Stop_HideDeferred);
         return;
     }
     g_hStopTimer = CreateTimer(extra, Timer_Stop);
@@ -163,7 +174,8 @@ public void Event_RoundFreezeEnd(Event event, const char[] name, bool dontBroadc
 
 void StartDisplay() {
     // A new round cancels whatever is left from the previous one (including after a restart).
-    StopDisplay(false);
+    // A pending hide is cancelled too: the new display overwrites the HUD.
+    StopDisplay(Stop_Silent);
 
     g_bActive = true;
     g_hRefreshTimer = CreateTimer(g_cvInterval.FloatValue, Timer_Refresh, _, TIMER_REPEAT);
@@ -171,21 +183,36 @@ void StartDisplay() {
     Refresh();
 }
 
-// hide = true: erase the HUD for those it was shown to.
-void StopDisplay(bool hide) {
+void StopDisplay(StopMode mode) {
     g_bActive = false;
     delete g_hRefreshTimer;
     delete g_hStopTimer;
+    delete g_hHideTimer;
 
+    if (mode == Stop_HideDeferred) {
+        // Refreshes are unreliable, the hide is reliable. If both end up in one packet, the
+        // client is expected to process the reliable hide first and the stale refresh after
+        // it, leaving the HUD on screen. Sending the hide later puts it in a later packet.
+        // CSS-VERIFY: the HUD never stays on screen after the display ends (also with cl_updaterate 10).
+        g_hHideTimer = CreateTimer(HIDE_DELAY, Timer_Hide);
+        LogDebug("display stopped, hiding in %.1f s", HIDE_DELAY);
+        return;
+    }
+
+    HideAll(mode == Stop_HideNow);
+    LogDebug("display stopped (mode=%d)", mode);
+}
+
+// send = true: erase the HUD for those it was shown to; false: only forget who saw it.
+void HideAll(bool send) {
     for (int client = 1; client <= MaxClients; client++) {
         if (g_bShownTo[client]) {
-            if (hide && IsClientInGame(client)) {
+            if (send && IsClientInGame(client)) {
                 SendKeyHint(client, "", true);
             }
             g_bShownTo[client] = false;
         }
     }
-    LogDebug("display stopped (hide=%d)", hide);
 }
 
 public Action Timer_Refresh(Handle timer) {
@@ -195,7 +222,13 @@ public Action Timer_Refresh(Handle timer) {
 
 public Action Timer_Stop(Handle timer) {
     g_hStopTimer = null;  // this timer ends by itself, StopDisplay must not delete it again
-    StopDisplay(true);
+    StopDisplay(Stop_HideDeferred);
+    return Plugin_Stop;
+}
+
+public Action Timer_Hide(Handle timer) {
+    g_hHideTimer = null;
+    HideAll(true);
     return Plugin_Stop;
 }
 
