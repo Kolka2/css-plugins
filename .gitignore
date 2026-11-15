@@ -1,2 +1,4 @@
 build/
 logs/
+# SourcePawn compiler and SourceMod include files: see "Building" in README.md
+tools/
