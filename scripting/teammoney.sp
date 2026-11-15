@@ -1,20 +1,20 @@
 /*
- * teammoney — деньги и гранаты команды в KeyHintText во время фризтайма.
+ * teammoney - team money and grenades in KeyHintText during freeze time.
  *
- * Слой:        утилита
- * Владеет:     своим HUD-сообщением (KeyHintText) во время фризтайма и N секунд после него
- * Читает:      деньги (m_iAccount), оружие и патроны игроков, события раунда
- * Использует:  ничего
+ * Layer:   utility
+ * Owns:    its own HUD message (KeyHintText) during freeze time and N seconds after it
+ * Reads:   money (m_iAccount), players' weapons and ammo, round events
+ * Uses:    nothing
  *
- * Основано на sm_team_money 1.0.3. Отличия от 1.0.3:
- *  - один таймер обновления и один таймер остановки, старые отменяются при новом раунде;
- *    конец показа считается от round_freeze_end, а не от mp_freezetime;
- *  - сообщение укладывается в лимит user message по байтам, лишние игроки сворачиваются в «+N»;
- *  - ники обрезаются по границе UTF-8 символа;
- *  - гранаты считаются по оружию игрока и его типу патронов, а не по захардкоженным индексам;
- *  - у неживых игроков показываются только деньги;
- *  - игроки команды отсортированы по деньгам;
- *  - обновления уходят ненадёжным сообщением, скрытие — надёжным.
+ * Based on sm_team_money 1.0.3. Differences from 1.0.3:
+ *  - one refresh timer and one stop timer, old ones are cancelled on a new round;
+ *    the end of the display is counted from round_freeze_end, not from mp_freezetime;
+ *  - the message fits the user message byte limit, extra players collapse into "+N";
+ *  - names are truncated on a UTF-8 character boundary;
+ *  - grenades are counted from the player's weapons and their ammo type, not hardcoded indices;
+ *  - dead players show money only;
+ *  - team players are sorted by money;
+ *  - refreshes are sent unreliably, the hide message reliably.
  */
 
 #pragma semicolon 1
@@ -26,13 +26,13 @@
 
 #define PLUGIN_VERSION "2.0.0"
 
-// Данные user message в Source ограничены ~255 байтами; KeyHintText добавляет байт
-// количества строк и завершающий ноль. Берём с запасом.
+// User message data in Source is limited to ~255 bytes; KeyHintText adds a string
+// count byte and a terminating zero. Keep a margin.
 #define MAX_HINT_BYTES 240
-// Сколько байт держать в запасе под строку «+N».
+// Bytes kept in reserve for the "+N" line.
 #define MORE_LINE_RESERVE 24
 
-// Запасные индексы m_iAmmo для CS:S, если тип патронов у оружия прочитать не удалось.
+// Fallback m_iAmmo indices for CS:S, used if the weapon's ammo type cannot be read.
 #define AMMO_HEGRENADE_FALLBACK  11
 #define AMMO_FLASHBANG_FALLBACK  12
 #define AMMO_SMOKE_FALLBACK      13
@@ -55,18 +55,18 @@ Handle g_hRefreshTimer;
 Handle g_hStopTimer;
 bool g_bActive;
 
-// Кому HUD показан в текущем показе (чтобы скрыть только у них).
+// Who has been shown the HUD in the current display (to hide it only for them).
 bool g_bShownTo[MAXPLAYERS + 1];
-// Деньги на момент построения сообщения (для сортировки).
+// Money at the moment the message is built (for sorting).
 int g_iMoney[MAXPLAYERS + 1];
 
 char g_DebugLogPath[PLATFORM_MAX_PATH];
 
-// Есть ли у оружия свойство m_iPrimaryAmmoType (иначе — запасные индексы).
+// Whether weapons have m_iPrimaryAmmoType (otherwise fallback indices are used).
 bool g_bHasAmmoTypeProp;
 
 // ---------------------------------------------------------------------------
-// Загрузка
+// Loading
 // ---------------------------------------------------------------------------
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max) {
@@ -89,12 +89,12 @@ public void OnPluginStart() {
         LogError("m_iPrimaryAmmoType not found, using fixed CS:S ammo indices");
     }
 
-    CreateConVar("sm_teammoney_version", PLUGIN_VERSION, "Версия плагина", FCVAR_NOTIFY | FCVAR_DONTRECORD);
-    g_cvEnabled    = CreateConVar("sm_teammoney_enabled", "1", "Показывать деньги и гранаты команды во время фризтайма", _, true, 0.0, true, 1.0);
-    g_cvDebug      = CreateConVar("sm_teammoney_debug", "0", "Подробный лог в logs/teammoney_debug.log", _, true, 0.0, true, 1.0);
-    g_cvExtraTime  = CreateConVar("sm_teammoney_extra_time", "5.0", "Сколько секунд показывать после конца фризтайма", _, true, 0.0, true, 30.0);
-    g_cvInterval   = CreateConVar("sm_teammoney_interval", "0.25", "Как часто обновлять (секунды)", _, true, 0.1, true, 2.0);
-    g_cvNameLength = CreateConVar("sm_teammoney_name_length", "12", "Максимум символов ника", _, true, 4.0, true, 32.0);
+    CreateConVar("sm_teammoney_version", PLUGIN_VERSION, "Plugin version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
+    g_cvEnabled    = CreateConVar("sm_teammoney_enabled", "1", "Show team money and grenades during freeze time", _, true, 0.0, true, 1.0);
+    g_cvDebug      = CreateConVar("sm_teammoney_debug", "0", "Verbose log in logs/teammoney_debug.log", _, true, 0.0, true, 1.0);
+    g_cvExtraTime  = CreateConVar("sm_teammoney_extra_time", "5.0", "Seconds to keep showing after freeze time ends", _, true, 0.0, true, 30.0);
+    g_cvInterval   = CreateConVar("sm_teammoney_interval", "0.25", "Refresh period in seconds", _, true, 0.1, true, 2.0);
+    g_cvNameLength = CreateConVar("sm_teammoney_name_length", "12", "Maximum characters of a player name", _, true, 4.0, true, 32.0);
     AutoExecConfig(true, "teammoney");
 
     g_cvEnabled.AddChangeHook(OnEnabledChanged);
@@ -124,7 +124,7 @@ public void OnEnabledChanged(ConVar convar, const char[] oldValue, const char[] 
 }
 
 // ---------------------------------------------------------------------------
-// Жизненный цикл показа
+// Display lifecycle
 // ---------------------------------------------------------------------------
 
 public void Event_RoundStart(Event event, const char[] name, bool dontBroadcast) {
@@ -150,7 +150,7 @@ public void Event_RoundFreezeEnd(Event event, const char[] name, bool dontBroadc
 }
 
 void StartDisplay() {
-    // Новый раунд отменяет всё, что осталось от предыдущего (в том числе после рестарта).
+    // A new round cancels whatever is left from the previous one (including after a restart).
     StopDisplay(false);
 
     g_bActive = true;
@@ -159,7 +159,7 @@ void StartDisplay() {
     Refresh();
 }
 
-// hide = true — стереть HUD у тех, кому он был показан.
+// hide = true: erase the HUD for those it was shown to.
 void StopDisplay(bool hide) {
     g_bActive = false;
     delete g_hRefreshTimer;
@@ -182,13 +182,13 @@ public Action Timer_Refresh(Handle timer) {
 }
 
 public Action Timer_Stop(Handle timer) {
-    g_hStopTimer = null;  // этот таймер завершается сам, StopDisplay не должен удалять его повторно
+    g_hStopTimer = null;  // this timer ends by itself, StopDisplay must not delete it again
     StopDisplay(true);
     return Plugin_Stop;
 }
 
 // ---------------------------------------------------------------------------
-// Построение и отправка
+// Building and sending
 // ---------------------------------------------------------------------------
 
 void Refresh() {
@@ -236,7 +236,7 @@ void BuildTeamText(int team, char[] buffer, int maxlen) {
         BuildPlayerLine(players[i], line, sizeof(line));
         int len = strlen(line);
 
-        // Для последнего игрока запас под «+N» не нужен.
+        // The last player needs no reserve for the "+N" line.
         int reserve = (i == count - 1) ? 0 : MORE_LINE_RESERVE;
         if (used + len + reserve > limit) {
             char more[MORE_LINE_RESERVE];
@@ -283,7 +283,7 @@ public int Sort_ByMoneyDesc(int elem1, int elem2, const int[] array, Handle hndl
     return elem1 - elem2;
 }
 
-// Гранаты по оружию игрока: 'F' на каждую флешку, 'H' — HE, 'S' — дым. Пример: "FFHS".
+// Grenades from the player's weapons: 'F' per flashbang, 'H' for HE, 'S' for smoke. Example: "FFHS".
 void GetPlayerNades(int client, char[] buffer, int maxlen) {
     int flashes = 0;
     bool he = false, smoke = false;
@@ -319,7 +319,7 @@ void GetPlayerNades(int client, char[] buffer, int maxlen) {
 }
 
 int GetGrenadeAmmo(int client, int weapon, int fallbackType) {
-    // CSS-VERIFY: m_iPrimaryAmmoType у гранат в CS:S совпадает с 11/12/13 (HE/флешка/дым).
+    // CSS-VERIFY: m_iPrimaryAmmoType of grenades in CS:S matches 11/12/13 (HE/flashbang/smoke).
     int type = g_bHasAmmoTypeProp ? GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType") : -1;
     if (type < 0) {
         type = fallbackType;
@@ -327,11 +327,11 @@ int GetGrenadeAmmo(int client, int weapon, int fallbackType) {
     return GetEntProp(client, Prop_Send, "m_iAmmo", _, type);
 }
 
-// Обрезает строку до maxChars символов, не разрывая многобайтовые UTF-8 символы.
+// Truncates the string to maxChars characters without splitting multibyte UTF-8 characters.
 void TruncateUtf8(char[] str, int maxChars) {
     int chars = 0;
     for (int i = 0; str[i] != '\0'; i++) {
-        if ((str[i] & 0xC0) != 0x80) {  // начало символа, а не байт продолжения
+        if ((str[i] & 0xC0) != 0x80) {  // start of a character, not a continuation byte
             if (chars == maxChars) {
                 str[i] = '\0';
                 return;
