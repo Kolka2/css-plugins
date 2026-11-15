@@ -28,7 +28,7 @@
 #include <cstrike>
 #include <nadethrow>
 
-#define PLUGIN_VERSION "1.1.4"
+#define PLUGIN_VERSION "1.1.5"
 
 #define STRENGTH_NONE   -1.0
 #define STRENGTH_FULL   1.0
@@ -559,19 +559,13 @@ bool AdjustProjectile(int entity, int client, float strength, bool fromCmdPost) 
 
     // The game does not overwrite the velocity after this.
     // The position is passed only when it changes. A teleport to a new position marks the
-    // entity as "teleported" for clients (m_ubInterpolationFrame); with that mark a SourceTV
-    // demo showed the grenade starting at the unscaled speed for a moment, without it the
-    // start was smooth. The server state is correct either way, so the mark is undone.
-    // CSS-VERIFY: with m_ubInterpolationFrame restored the start of the flight is smooth
-    // with a lowered release point as well (SourceTV demo, sm_nadethrow_z_offset 12).
+    // entity as "teleported" for clients (m_ubInterpolationFrame 0 -> 1), and clients then
+    // draw the first moments of the flight at the unscaled speed. The server state is correct
+    // either way, so the mark is undone (confirmed with a SourceTV demo).
     if (lowered) {
         bool hasInterpFrame = HasEntProp(entity, Prop_Send, "m_ubInterpolationFrame");
         int interpFrame = hasInterpFrame ? GetEntProp(entity, Prop_Send, "m_ubInterpolationFrame") : 0;
-        int effects = GetEntProp(entity, Prop_Send, "m_fEffects");
         TeleportEntity(entity, newPos, NULL_VECTOR, newVel);
-        LogDebug("projectile %d teleport: interpolation frame %d -> %d, effects %d -> %d", entity, interpFrame,
-            hasInterpFrame ? GetEntProp(entity, Prop_Send, "m_ubInterpolationFrame") : 0,
-            effects, GetEntProp(entity, Prop_Send, "m_fEffects"));
         if (hasInterpFrame) {
             SetEntProp(entity, Prop_Send, "m_ubInterpolationFrame", interpFrame);
         }
