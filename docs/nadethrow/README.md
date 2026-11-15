@@ -33,7 +33,7 @@
 | `sm_nadethrow_z_offset` | 12.0 | на сколько юнитов ниже вылетает граната при силе 0.0 |
 | `sm_nadethrow_release_grace` | 0.1 | сколько секунд после отпускания одной из двух кнопок сила ещё считается по обеим; 0 — строго по последнему тику |
 | `sm_nadethrow_announce` | 1 | один раз за подключение написать игроку в чат, как бросать с разной силой |
-| `sm_nadethrow_bots` | 0 | обрабатывать ли ввод ботов |
+| `sm_nadethrow_bots` | 0 | обрабатывать ли ввод ботов; сейчас ничего не меняет, нужен для будущих плагинов (см. ограничения) |
 | `sm_nadethrow_debug` | 0 | лог в `logs/nadethrow_debug.log`: сила, скорость и позиция до и после поправки |
 | `sm_nadethrow_version` | — | версия |
 
@@ -86,7 +86,7 @@ forward void Nadethrow_OnGrenadeThrown(int client, int projectile, float strengt
 - Jumpthrow с ПКМ требует `-attack2` в алиасе (см. выше).
 - Средний бросок: если отпустить одну кнопку и держать вторую дольше `sm_nadethrow_release_grace`, сила изменится на силу оставшейся кнопки. Это поведение по заданию; пауза нужна только для того, чтобы «отпустил обе почти одновременно» давало средний бросок.
 - ПКМ с гранатой в руке больше не доходит до игры и других плагинов (если им нужен `IN_ATTACK2` с гранатой).
-- Ввод ботов обрабатывается только при `sm_nadethrow_bots 1`; сами боты ПКМ не нажимают.
+- `sm_nadethrow_bots` сейчас ничего не меняет: сами боты ПКМ с гранатой не нажимают, поэтому бросают одинаково при 0 и при 1. Квар оставлен для будущих плагинов, которые будут воспроизводить на ботах записанный ввод игрока (`botcontrol`, `executes`): при 1 записанная ПКМ у бота обрабатывается как у человека.
 - Значения `min_scale` и `z_offset` — приблизительные, из CS:GO; их нужно подобрать на сервере.
 
 ---
@@ -126,7 +126,7 @@ Config file: `cfg/sourcemod/nadethrow.cfg`.
 | `sm_nadethrow_z_offset` | 12.0 | how many units lower the grenade is released at strength 0.0 |
 | `sm_nadethrow_release_grace` | 0.1 | seconds during which releasing one of two held buttons does not change the strength; 0 = strictly the last tick |
 | `sm_nadethrow_announce` | 1 | tell each player in chat, once per connection, how to throw with different strength |
-| `sm_nadethrow_bots` | 0 | process bot input |
+| `sm_nadethrow_bots` | 0 | process bot input; changes nothing at the moment, kept for future plugins (see limitations) |
 | `sm_nadethrow_debug` | 0 | log to `logs/nadethrow_debug.log`: strength, velocity and position before and after the adjustment |
 | `sm_nadethrow_version` | — | version |
 
@@ -179,5 +179,5 @@ forward void Nadethrow_OnGrenadeThrown(int client, int projectile, float strengt
 - A right click jumpthrow needs `-attack2` in the alias (see above).
 - Medium throw: releasing one button and holding the other for longer than `sm_nadethrow_release_grace` switches the strength to the remaining button. The grace period only exists so that "released both almost at once" still gives a medium throw.
 - Right click with a grenade in hand no longer reaches the game or other plugins.
-- Bot input is processed only with `sm_nadethrow_bots 1`; bots never press right click on their own.
+- `sm_nadethrow_bots` changes nothing at the moment: bots never press right click with a grenade on their own, so they throw the same with 0 and 1. The convar is kept for future plugins that replay recorded player input on bots (`botcontrol`, `executes`): with 1, a recorded right click on a bot is handled the same way as for a human.
 - `min_scale` and `z_offset` are approximate CS:GO values and need tuning on the server.
