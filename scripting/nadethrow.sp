@@ -565,7 +565,12 @@ bool AdjustProjectile(int entity, int client, float strength, bool fromCmdPost) 
     if (lowered) {
         bool hasInterpFrame = HasEntProp(entity, Prop_Send, "m_ubInterpolationFrame");
         int interpFrame = hasInterpFrame ? GetEntProp(entity, Prop_Send, "m_ubInterpolationFrame") : 0;
+        int effects = GetEntProp(entity, Prop_Send, "m_fEffects");
         TeleportEntity(entity, newPos, NULL_VECTOR, newVel);
+        // Debug only: what the teleport changed, in case a game update changes this behaviour.
+        LogDebug("projectile %d teleport: interpolation frame %d -> %d, effects %d -> %d", entity, interpFrame,
+            hasInterpFrame ? GetEntProp(entity, Prop_Send, "m_ubInterpolationFrame") : 0,
+            effects, GetEntProp(entity, Prop_Send, "m_fEffects"));
         if (hasInterpFrame) {
             SetEntProp(entity, Prop_Send, "m_ubInterpolationFrame", interpFrame);
         }
