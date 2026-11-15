@@ -28,7 +28,7 @@
 #include <cstrike>
 #include <nadethrow>
 
-#define PLUGIN_VERSION "1.1.2"
+#define PLUGIN_VERSION "1.1.3"
 
 #define STRENGTH_NONE   -1.0
 #define STRENGTH_FULL   1.0
@@ -461,6 +461,7 @@ public void Frame_Projectile(int ref) {
 
     for (int client = 1; client <= MaxClients; client++) {
         if (g_iDoneRef[client] == ref) {
+            LogProjectileState(entity, "next frame");
             return;
         }
         if (g_iProjectileRef[client] == ref) {
@@ -503,6 +504,7 @@ void FinishProjectile(int client, bool fromCmdPost) {
 
     g_iProjectileRef[client] = INVALID_ENT_REFERENCE;
     g_iDoneRef[client] = ref;
+    LogProjectileState(entity, "thrown");
 
     Call_StartForward(g_fwdOnGrenadeThrown);
     Call_PushCell(client);
@@ -556,7 +558,13 @@ bool AdjustProjectile(int entity, int client, float strength, bool fromCmdPost) 
     }
 
     // The game does not overwrite the velocity after this.
-    TeleportEntity(entity, newPos, NULL_VECTOR, newVel);
+    // The position is passed only when it changes: a teleport to a new position also tells
+    // clients not to interpolate, which may matter for the first frames of the flight.
+    if (lowered) {
+        TeleportEntity(entity, newPos, NULL_VECTOR, newVel);
+    } else {
+        TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, newVel);
+    }
 
     // The client builds the start of the trajectory from m_vInitialVelocity; keep it consistent.
     // CSS-VERIFY: no jerk at the start of the flight for the thrower and for other players,
@@ -637,6 +645,23 @@ public any Native_GetZOffset(Handle plugin, int numParams) {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// Debug only: what the server actually has for the projectile (right after the throw is
+// processed and one frame later), to tell server side jerks from client interpolation.
+void LogProjectileState(int entity, const char[] when) {
+    if (!g_cvDebug.BoolValue || !HasEntProp(entity, Prop_Data, "m_vecAbsVelocity")) {
+        return;
+    }
+    float pos[3], vel[3], initial[3];
+    GetEntPropVector(entity, Prop_Data, "m_vecAbsOrigin", pos);
+    GetEntPropVector(entity, Prop_Data, "m_vecAbsVelocity", vel);
+    if (HasEntProp(entity, Prop_Send, "m_vInitialVelocity")) {
+        GetEntPropVector(entity, Prop_Send, "m_vInitialVelocity", initial);
+    }
+    LogDebug("projectile %d state (%s, tick %d): pos (%.1f %.1f %.1f), vel (%.1f %.1f %.1f), initial vel (%.1f %.1f %.1f)",
+        entity, when, GetGameTickCount(),
+        pos[0], pos[1], pos[2], vel[0], vel[1], vel[2], initial[0], initial[1], initial[2]);
+}
 
 void LogDebug(const char[] format, any ...) {
     if (!g_cvDebug.BoolValue) {
