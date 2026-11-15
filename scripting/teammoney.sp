@@ -32,6 +32,9 @@
 // Bytes kept in reserve for the "+N" line.
 #define MORE_LINE_RESERVE 24
 
+// Languages cached per refresh; viewers beyond that get their text built individually.
+#define MAX_CACHED_LANGS 8
+
 // Fallback m_iAmmo indices for CS:S, used if the weapon's ammo type cannot be read.
 #define AMMO_HEGRENADE_FALLBACK  11
 #define AMMO_FLASHBANG_FALLBACK  12
@@ -61,6 +64,15 @@ bool g_bShownTo[MAXPLAYERS + 1];
 int g_iMoney[MAXPLAYERS + 1];
 
 char g_DebugLogPath[PLATFORM_MAX_PATH];
+
+// Team texts of the current refresh, one per language in use ([lang slot][0 = T, 1 = CT]).
+int g_iCacheLang[MAX_CACHED_LANGS];
+char g_TextCache[MAX_CACHED_LANGS][2][MAX_HINT_BYTES + 1];
+bool g_bCacheBuilt[MAX_CACHED_LANGS][2];
+
+bool g_bHasPhraseDead;
+bool g_bHasPhraseMore;
+bool g_bLoggedNoPhrase;
 
 // Whether weapons have m_iPrimaryAmmoType (otherwise fallback indices are used).
 bool g_bHasAmmoTypeProp;
@@ -192,27 +204,70 @@ public Action Timer_Stop(Handle timer) {
 // ---------------------------------------------------------------------------
 
 void Refresh() {
-    char textT[MAX_HINT_BYTES + 1], textCT[MAX_HINT_BYTES + 1];
-    BuildTeamText(CS_TEAM_T, textT, sizeof(textT));
-    BuildTeamText(CS_TEAM_CT, textCT, sizeof(textCT));
+    CheckPhrases();
+
+    // Every viewer gets the text in their own language: it is built once per refresh
+    // for each (language, team) pair in use.
+    int langCount = 0;
+    char overflow[MAX_HINT_BYTES + 1];
 
     for (int client = 1; client <= MaxClients; client++) {
         if (!IsClientInGame(client) || IsFakeClient(client)) {
             continue;
         }
 
-        switch (GetClientTeam(client)) {
-            case CS_TEAM_T: {
-                g_bShownTo[client] = SendKeyHint(client, textT, false) || g_bShownTo[client];
+        int team = GetClientTeam(client);
+        if (team != CS_TEAM_T && team != CS_TEAM_CT) {
+            continue;
+        }
+        int teamSlot = (team == CS_TEAM_T) ? 0 : 1;
+
+        int lang = GetClientLanguage(client);
+        int slot = -1;
+        for (int i = 0; i < langCount; i++) {
+            if (g_iCacheLang[i] == lang) {
+                slot = i;
+                break;
             }
-            case CS_TEAM_CT: {
-                g_bShownTo[client] = SendKeyHint(client, textCT, false) || g_bShownTo[client];
+        }
+        if (slot == -1 && langCount < MAX_CACHED_LANGS) {
+            slot = langCount++;
+            g_iCacheLang[slot] = lang;
+            g_bCacheBuilt[slot][0] = false;
+            g_bCacheBuilt[slot][1] = false;
+        }
+
+        bool sent;
+        if (slot == -1) {
+            // More languages than cache slots: build for this viewer alone.
+            BuildTeamText(team, client, overflow, sizeof(overflow));
+            sent = SendKeyHint(client, overflow, false);
+        } else {
+            if (!g_bCacheBuilt[slot][teamSlot]) {
+                BuildTeamText(team, client, g_TextCache[slot][teamSlot], MAX_HINT_BYTES + 1);
+                g_bCacheBuilt[slot][teamSlot] = true;
             }
+            sent = SendKeyHint(client, g_TextCache[slot][teamSlot], false);
+        }
+        if (sent) {
+            g_bShownTo[client] = true;
         }
     }
 }
 
-void BuildTeamText(int team, char[] buffer, int maxlen) {
+// A missing phrase must not throw inside the refresh timer: check before every refresh
+// and fall back to text without the phrase.
+void CheckPhrases() {
+    g_bHasPhraseDead = TranslationPhraseExists("Dead");
+    g_bHasPhraseMore = TranslationPhraseExists("More players");
+    if ((!g_bHasPhraseDead || !g_bHasPhraseMore) && !g_bLoggedNoPhrase) {
+        g_bLoggedNoPhrase = true;
+        LogError("Phrases \"Dead\" / \"More players\" not found: install translations/teammoney.phrases.txt");
+    }
+}
+
+// viewer - the client whose language the text is built in.
+void BuildTeamText(int team, int viewer, char[] buffer, int maxlen) {
     buffer[0] = '\0';
 
     int players[MAXPLAYERS];
@@ -233,14 +288,20 @@ void BuildTeamText(int team, char[] buffer, int maxlen) {
     int used = 0;
     char line[256];
     for (int i = 0; i < count; i++) {
-        BuildPlayerLine(players[i], line, sizeof(line));
+        BuildPlayerLine(players[i], viewer, line, sizeof(line));
         int len = strlen(line);
 
         // The last player needs no reserve for the "+N" line.
         int reserve = (i == count - 1) ? 0 : MORE_LINE_RESERVE;
         if (used + len + reserve > limit) {
-            char more[MORE_LINE_RESERVE];
-            Format(more, sizeof(more), "%T\n", "More players", LANG_SERVER, count - i);
+            // Larger than the reserve so that a long translation is not cut mid-character;
+            // if it does not fit the message, the line is skipped.
+            char more[64];
+            if (g_bHasPhraseMore) {
+                Format(more, sizeof(more), "%T\n", "More players", viewer, count - i);
+            } else {
+                Format(more, sizeof(more), "+%d\n", count - i);
+            }
             if (used + strlen(more) <= limit) {
                 StrCat(buffer, maxlen, more);
             }
@@ -253,14 +314,18 @@ void BuildTeamText(int team, char[] buffer, int maxlen) {
     }
 }
 
-void BuildPlayerLine(int client, char[] line, int maxlen) {
+void BuildPlayerLine(int client, int viewer, char[] line, int maxlen) {
     char name[MAX_NAME_LENGTH];
     GetClientName(client, name, sizeof(name));
     ReplaceString(name, sizeof(name), "\n", " ");
     TruncateUtf8(name, g_cvNameLength.IntValue);
 
     if (!IsPlayerAlive(client)) {
-        Format(line, maxlen, "%s — $%d (%T)\n", name, g_iMoney[client], "Dead", LANG_SERVER);
+        if (g_bHasPhraseDead) {
+            Format(line, maxlen, "%s — $%d (%T)\n", name, g_iMoney[client], "Dead", viewer);
+        } else {
+            Format(line, maxlen, "%s — $%d\n", name, g_iMoney[client]);
+        }
         return;
     }
 
