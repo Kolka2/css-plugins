@@ -28,7 +28,7 @@
 #include <cstrike>
 #include <nadethrow>
 
-#define PLUGIN_VERSION "1.1.1"
+#define PLUGIN_VERSION "1.1.2"
 
 #define STRENGTH_NONE   -1.0
 #define STRENGTH_FULL   1.0
@@ -78,6 +78,8 @@ float g_fPendingMaskTime[MAXPLAYERS + 1];
 bool g_bThrowLatched[MAXPLAYERS + 1];
 float g_fThrowStrength[MAXPLAYERS + 1];
 float g_fThrowTime[MAXPLAYERS + 1];
+// Right click has been held at some point of the current hold.
+bool g_bRightClickUsed[MAXPLAYERS + 1];
 
 // --- Projectile (per owner) ---
 // Projectile that has spawned and waits for the adjustment.
@@ -200,6 +202,7 @@ void ResetInput(int client) {
     g_bGrenadeInHand[client] = false;
     g_iHeldMask[client] = 0;
     g_iPendingMask[client] = 0;
+    g_bRightClickUsed[client] = false;
     g_bThrowLatched[client] = false;
 }
 
@@ -264,18 +267,25 @@ public Action OnPlayerRunCmd(int client, int &buttons) {
     }
 
     UpdateHeldMask(client, mask);
+    if (mask & IN_ATTACK2) {
+        g_bRightClickUsed[client] = true;
+    }
 
-    // Left click only: the command is not touched at all, a normal throw stays normal.
+    // Left click only, from press to release: nothing is touched at all, a normal throw stays normal.
+    if (!g_bRightClickUsed[client]) {
+        return Plugin_Continue;
+    }
+
+    // Right click has been part of this hold. Keep the block until the throw, even if only
+    // left click is held now: the client still believes the pin is not pulled.
+    BlockPredictedPinPull(weapon);
     if (mask == IN_ATTACK) {
         return Plugin_Continue;
     }
 
-    BlockPredictedPinPull(weapon);
-
-    // The first person pin pull animation is fine with this. The thrower's own client believes
-    // the pin is not pulled while only right click is held, so in its own third person view
-    // the player model drops the arm.
-    // CSS-VERIFY: other players (or a SourceTV demo) see the normal pin pull pose on a right click hold.
+    // The first person pin pull animation is fine with this, and other players see the normal
+    // pin pull pose. The thrower's own client believes the pin is not pulled while only right
+    // click is held, so in its own third person view the player model drops the arm.
     buttons = (buttons | IN_ATTACK) & ~IN_ATTACK2;
     return Plugin_Changed;
 }
@@ -328,6 +338,7 @@ void OnThrowButtonsReleased(int client, int weapon) {
     float strength = MaskToStrength(g_iHeldMask[client]);
     g_iHeldMask[client] = 0;
     g_iPendingMask[client] = 0;
+    g_bRightClickUsed[client] = false;
 
     // The button may have been pressed and released while the pin cannot be pulled (drawing
     // the grenade, right after the previous throw): there is no throw and nothing to latch.
