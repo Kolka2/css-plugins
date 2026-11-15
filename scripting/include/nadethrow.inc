@@ -7,53 +7,55 @@
 #define NADETHROW_API_VERSION 1
 
 /**
- * Версия API загруженного плагина (сравнивать с NADETHROW_API_VERSION).
+ * API version of the loaded plugin (compare with NADETHROW_API_VERSION).
  */
 native int Nadethrow_GetApiVersion();
 
 /**
- * Включён ли плагин (sm_nadethrow_enabled).
+ * Whether the plugin is enabled (sm_nadethrow_enabled).
  *
- * Если выключен, броски не меняются, а Nadethrow_OnGrenadeThrown не вызывается.
+ * While disabled, throws are not changed and Nadethrow_OnGrenadeThrown is not called.
  */
 native bool Nadethrow_IsEnabled();
 
 /**
- * Текущая сила броска игрока.
+ * Current throw strength of a player.
  *
- * @param client    Индекс игрока (должен быть в игре).
- * @return          0.0–1.0, пока игрок держит гранату с выдернутой чекой
- *                  (1.0 — ЛКМ, 0.5 — ЛКМ+ПКМ, 0.0 — ПКМ); иначе -1.0.
- *                  Для игроков, которых плагин не обрабатывает (боты при
- *                  sm_nadethrow_bots 0), всегда -1.0.
- * @error           Неверный индекс или игрок не в игре.
+ * @param client    Client index (must be in game).
+ * @return          0.0-1.0 while the player holds a grenade with the pin pulled
+ *                  (1.0 = left click, 0.5 = left + right click, 0.0 = right click);
+ *                  -1.0 otherwise. Always -1.0 for players the plugin does not
+ *                  process (bots with sm_nadethrow_bots 0).
+ * @error           Invalid client index or client not in game.
  */
 native float Nadethrow_GetThrowStrength(int client);
 
 /**
- * Доля «собственной» скорости броска при силе 0.0 (sm_nadethrow_min_scale).
+ * Fraction of the throw's own speed at strength 0.0 (sm_nadethrow_min_scale).
  *
- * Плагин пересчитывает скорость снаряда так:
+ * The plugin recomputes the projectile velocity as:
  *   k   = minScale + (1 - minScale) * strength
  *   new = (v - playerVel) * k + playerVel
- * где v — скорость снаряда, заданная игрой, playerVel — скорость игрока в момент броска.
+ * where v is the projectile velocity set by the game and playerVel is the player's
+ * velocity at the moment the projectile is created.
  */
 native float Nadethrow_GetMinScale();
 
 /**
- * На сколько юнитов ниже вылетает граната при силе 0.0 (sm_nadethrow_z_offset).
+ * How many units lower the grenade is released at strength 0.0 (sm_nadethrow_z_offset).
  *
- * Точка вылета опускается на (1 - strength) * zOffset, если по пути нет препятствия.
+ * The release point is lowered by (1 - strength) * zOffset unless something is in the way.
  */
 native float Nadethrow_GetZOffset();
 
 /**
- * Уведомление: игрок бросил гранату. Вызывается после поправки снаряда (если она была),
- * в том числе для бросков с силой 1.0 и для ботов. Не вызывается, если плагин выключен.
+ * Notification: a player has thrown a grenade. Called after the projectile has been
+ * adjusted (if it was), including throws with strength 1.0 and throws by bots.
+ * Not called while the plugin is disabled.
  *
- * @param client        Бросивший игрок.
- * @param projectile    Индекс сущности снаряда.
- * @param strength      Сила броска 0.0–1.0 (1.0 — снаряд не менялся).
+ * @param client        The player who threw the grenade.
+ * @param projectile    Entity index of the projectile.
+ * @param strength      Throw strength 0.0-1.0 (1.0 = the projectile was not changed).
  */
 forward void Nadethrow_OnGrenadeThrown(int client, int projectile, float strength);
 

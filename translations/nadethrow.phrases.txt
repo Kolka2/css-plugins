@@ -1,17 +1,7 @@
 "Phrases"
 {
-	"Hint strong"
+	"Announce"
 	{
-		"en"		"Throw: strong"
-	}
-
-	"Hint medium"
-	{
-		"en"		"Throw: medium"
-	}
-
-	"Hint light"
-	{
-		"en"		"Throw: light"
+		"en"		"Grenades can be thrown with different strength: left click - strong, left + right click - medium, right click - light."
 	}
 }

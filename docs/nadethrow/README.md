@@ -12,7 +12,7 @@
 
 Пока граната в руке с выдернутой чекой, силу можно менять, зажимая и отпуская кнопки. Бросок происходит, когда отпущены обе.
 
-**Не проверено на сервере.** Всё, что зависит от движка, помечено в коде `CSS-VERIFY` и собрано в [TEST_CHECKLIST.md](TEST_CHECKLIST.md).
+Основная механика проверена на сервере (броски, сохранение скорости игрока, поправка в том же тике). Что ещё не проверено — в [TEST_CHECKLIST.md](TEST_CHECKLIST.md).
 
 ## Установка
 
@@ -32,12 +32,23 @@
 | `sm_nadethrow_min_scale` | 0.3 | доля собственной скорости броска при силе 0.0 |
 | `sm_nadethrow_z_offset` | 12.0 | на сколько юнитов ниже вылетает граната при силе 0.0 |
 | `sm_nadethrow_release_grace` | 0.1 | сколько секунд после отпускания одной из двух кнопок сила ещё считается по обеим; 0 — строго по последнему тику |
-| `sm_nadethrow_hint` | 0 | показывать силу броска текстом по центру, пока чека выдернута |
+| `sm_nadethrow_announce` | 1 | один раз за подключение написать игроку в чат, как бросать с разной силой |
 | `sm_nadethrow_bots` | 0 | обрабатывать ли ввод ботов |
 | `sm_nadethrow_debug` | 0 | лог в `logs/nadethrow_debug.log`: сила, скорость и позиция до и после поправки |
 | `sm_nadethrow_version` | — | версия |
 
 Команд нет.
+
+## Jumpthrow
+
+Обычный алиас отпускает только ЛКМ, поэтому с ПКМ и ЛКМ+ПКМ не сработает: ПКМ остаётся зажатой, и граната остаётся в руке. Сервер не может отличить `-attack` из алиаса от отпущенной кнопки, так что алиас нужно дополнить `-attack2` (как в CS:GO):
+
+```
+alias "+jumpthrow" "+jump; -attack; -attack2"
+alias "-jumpthrow" "-jump"
+```
+
+С ним обе кнопки отпускаются в одном тике, и сила берётся по тем, что были зажаты: ЛКМ — 1.0, ЛКМ+ПКМ — 0.5, ПКМ — 0.0.
 
 ## Как это работает
 
@@ -71,7 +82,8 @@ forward void Nadethrow_OnGrenadeThrown(int client, int projectile, float strengt
 ## Известные ограничения
 
 - Анимация броска в CS:S одна: бросок «снизу» выглядит как обычный, и от первого лица, и со стороны.
-- Клиент не знает, что ПКМ выдёргивает чеку, поэтому анимация рук при ПКМ приходит с сервера и может запаздывать на величину пинга.
+- Клиент не знает, что ПКМ выдёргивает чеку: анимация рук при ПКМ приходит с сервера и может запаздывать на величину пинга, а при удержании ПКМ клиент может на мгновение показать анимацию броска. Звук чеки при нажатии ЛКМ поверх ПКМ плагин подавляет, сдвигая `m_flNextPrimaryAttack` гранаты, пока чека выдернута.
+- Jumpthrow с ПКМ требует `-attack2` в алиасе (см. выше).
 - Средний бросок: если отпустить одну кнопку и держать вторую дольше `sm_nadethrow_release_grace`, сила изменится на силу оставшейся кнопки. Это поведение по заданию; пауза нужна только для того, чтобы «отпустил обе почти одновременно» давало средний бросок.
 - ПКМ с гранатой в руке больше не доходит до игры и других плагинов (если им нужен `IN_ATTACK2` с гранатой).
 - Ввод ботов обрабатывается только при `sm_nadethrow_bots 1`; сами боты ПКМ не нажимают.
@@ -93,7 +105,7 @@ A service plugin that adds CS:GO-style grenade throws to Counter-Strike: Source:
 
 While the pin is pulled, the strength follows the buttons currently held. The grenade is thrown when both are released.
 
-**Not tested on a live server.** Everything that depends on engine behaviour is marked `CSS-VERIFY` in the code and listed in [TEST_CHECKLIST.md](TEST_CHECKLIST.md).
+The core mechanic has been tested on a server (throws, kept player velocity, same-tick adjustment). What is still unverified is listed in [TEST_CHECKLIST.md](TEST_CHECKLIST.md).
 
 ## Installation
 
@@ -113,12 +125,23 @@ Config file: `cfg/sourcemod/nadethrow.cfg`.
 | `sm_nadethrow_min_scale` | 0.3 | fraction of the throw's own speed at strength 0.0 |
 | `sm_nadethrow_z_offset` | 12.0 | how many units lower the grenade is released at strength 0.0 |
 | `sm_nadethrow_release_grace` | 0.1 | seconds during which releasing one of two held buttons does not change the strength; 0 = strictly the last tick |
-| `sm_nadethrow_hint` | 0 | show the throw strength as centre text while the pin is pulled |
+| `sm_nadethrow_announce` | 1 | tell each player in chat, once per connection, how to throw with different strength |
 | `sm_nadethrow_bots` | 0 | process bot input |
 | `sm_nadethrow_debug` | 0 | log to `logs/nadethrow_debug.log`: strength, velocity and position before and after the adjustment |
 | `sm_nadethrow_version` | — | version |
 
 No commands.
+
+## Jumpthrow
+
+The usual alias releases left click only, so it does not work with right or left + right click: right click stays held and the grenade stays in hand. The server cannot tell `-attack` in an alias from a released button, so the alias needs `-attack2` (as in CS:GO):
+
+```
+alias "+jumpthrow" "+jump; -attack; -attack2"
+alias "-jumpthrow" "-jump"
+```
+
+Both buttons are then released in the same tick and the strength follows the ones that were held: left — 1.0, left + right — 0.5, right — 0.0.
 
 ## How it works
 
@@ -152,7 +175,8 @@ forward void Nadethrow_OnGrenadeThrown(int client, int projectile, float strengt
 ## Known limitations
 
 - CS:S has a single throw animation: an underhand throw looks like a normal one in both first and third person.
-- The client does not know that right click pulls the pin, so the viewmodel animation on right click comes from the server and may lag by the player's ping.
+- The client does not know that right click pulls the pin: the viewmodel animation on right click comes from the server and may lag by the player's ping, and while right click is held the client may briefly show the throw animation. The pin sound on pressing left click over right click is suppressed by pushing the grenade's `m_flNextPrimaryAttack` forward while the pin is pulled.
+- A right click jumpthrow needs `-attack2` in the alias (see above).
 - Medium throw: releasing one button and holding the other for longer than `sm_nadethrow_release_grace` switches the strength to the remaining button. The grace period only exists so that "released both almost at once" still gives a medium throw.
 - Right click with a grenade in hand no longer reaches the game or other plugins.
 - Bot input is processed only with `sm_nadethrow_bots 1`; bots never press right click on their own.
