@@ -1,0 +1,13 @@
+"Phrases"
+{
+	"Dead"
+	{
+		"en"		"dead"
+	}
+
+	"More players"
+	{
+		"#format"	"{1:d}"
+		"en"		"+{1} more"
+	}
+}

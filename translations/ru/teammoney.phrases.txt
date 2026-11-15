@@ -1,0 +1,12 @@
+"Phrases"
+{
+	"Dead"
+	{
+		"ru"		"мёртв"
+	}
+
+	"More players"
+	{
+		"ru"		"и ещё {1}"
+	}
+}
