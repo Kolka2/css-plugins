@@ -28,7 +28,7 @@
 #include <cstrike>
 #include <nadethrow>
 
-#define PLUGIN_VERSION "1.1.0"
+#define PLUGIN_VERSION "1.1.1"
 
 #define STRENGTH_NONE   -1.0
 #define STRENGTH_FULL   1.0
@@ -272,8 +272,10 @@ public Action OnPlayerRunCmd(int client, int &buttons) {
 
     BlockPredictedPinPull(weapon);
 
-    // CSS-VERIFY: replacing right click with IN_ATTACK does not break the pin pull animation
-    // (the client does not predict the press, so the animation comes from the server).
+    // The first person pin pull animation is fine with this. The thrower's own client believes
+    // the pin is not pulled while only right click is held, so in its own third person view
+    // the player model drops the arm.
+    // CSS-VERIFY: other players (or a SourceTV demo) see the normal pin pull pose on a right click hold.
     buttons = (buttons | IN_ATTACK) & ~IN_ATTACK2;
     return Plugin_Changed;
 }
@@ -283,8 +285,7 @@ public Action OnPlayerRunCmd(int client, int &buttons) {
 // left click press while right click is still held. Keeping m_flNextPrimaryAttack slightly
 // in the future stops the client from predicting that attack. The server does not need
 // PrimaryAttack while the pin is pulled, and the throw itself sets the property again.
-// CSS-VERIFY: no pin pull sound when pressing left click while holding right click.
-// CSS-VERIFY: a right click throw is not delayed (the throw does not depend on m_flNextPrimaryAttack).
+// The throw does not depend on m_flNextPrimaryAttack, so it is not delayed.
 void BlockPredictedPinPull(int weapon) {
     // Only once the pin is pulled, otherwise the block would prevent pulling it.
     if (!IsPinPulled(weapon) || !HasEntProp(weapon, Prop_Send, "m_flNextPrimaryAttack")) {
@@ -518,8 +519,8 @@ bool AdjustProjectile(int entity, int client, float strength, bool fromCmdPost) 
     }
 
     // Velocity: only the throw's own part is scaled, the player's velocity is kept.
-    // CSS-VERIFY: CS:S adds the full player velocity to the throw (vForward * flVel + GetAbsVelocity()),
-    // taken when the projectile is created. Check: right click throws while running forward and backward.
+    // CS:S adds the full player velocity to the throw (vForward * flVel + GetAbsVelocity()),
+    // taken when the projectile is created.
     float k = g_cvMinScale.FloatValue + (1.0 - g_cvMinScale.FloatValue) * strength;
     float newVel[3];
     for (int i = 0; i < 3; i++) {
@@ -543,14 +544,14 @@ bool AdjustProjectile(int entity, int client, float strength, bool fromCmdPost) 
         }
     }
 
-    // CSS-VERIFY: the game does not overwrite the projectile velocity after this, and clients
-    // see no jerk at the start of the flight (especially if the debug log says "via frame").
+    // The game does not overwrite the velocity after this.
     TeleportEntity(entity, newPos, NULL_VECTOR, newVel);
 
-    // The client builds the start of the trajectory from m_vecInitialVelocity; keep it consistent.
-    // CSS-VERIFY: CS:S projectiles have this property; without it the first frames may jerk.
-    if (HasEntProp(entity, Prop_Send, "m_vecInitialVelocity")) {
-        SetEntPropVector(entity, Prop_Send, "m_vecInitialVelocity", newVel);
+    // The client builds the start of the trajectory from m_vInitialVelocity; keep it consistent.
+    // CSS-VERIFY: no jerk at the start of the flight for the thrower and for other players,
+    // with real ping, now that this property is updated as well.
+    if (HasEntProp(entity, Prop_Send, "m_vInitialVelocity")) {
+        SetEntPropVector(entity, Prop_Send, "m_vInitialVelocity", newVel);
     }
 
     LogDebug("%N: projectile %d via %s, strength %.2f, k %.2f, player vel (%.1f %.1f %.1f), vel (%.1f %.1f %.1f) -> (%.1f %.1f %.1f), pos (%.1f %.1f %.1f) -> (%.1f %.1f %.1f)%s",
