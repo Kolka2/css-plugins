@@ -1,0 +1,17 @@
+"Phrases"
+{
+	"Hint strong"
+	{
+		"en"		"Throw: strong"
+	}
+
+	"Hint medium"
+	{
+		"en"		"Throw: medium"
+	}
+
+	"Hint light"
+	{
+		"en"		"Throw: light"
+	}
+}
