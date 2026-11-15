@@ -28,7 +28,7 @@
 #include <cstrike>
 #include <nadethrow>
 
-#define PLUGIN_VERSION "1.1.3"
+#define PLUGIN_VERSION "1.1.4"
 
 #define STRENGTH_NONE   -1.0
 #define STRENGTH_FULL   1.0
@@ -125,7 +125,7 @@ public void OnPluginStart() {
     CreateConVar("sm_nadethrow_version", PLUGIN_VERSION, "Plugin version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
     g_cvEnabled      = CreateConVar("sm_nadethrow_enabled", "1", "Enable throws of different strength (left / left+right / right click)", _, true, 0.0, true, 1.0);
     g_cvDebug        = CreateConVar("sm_nadethrow_debug", "0", "Verbose log in logs/nadethrow_debug.log", _, true, 0.0, true, 1.0);
-    g_cvMinScale     = CreateConVar("sm_nadethrow_min_scale", "0.3", "Fraction of the throw's own speed at strength 0.0 (right click)", _, true, 0.0, true, 1.0);
+    g_cvMinScale     = CreateConVar("sm_nadethrow_min_scale", "0.35", "Fraction of the throw's own speed at strength 0.0 (right click)", _, true, 0.0, true, 1.0);
     g_cvZOffset      = CreateConVar("sm_nadethrow_z_offset", "12.0", "How many units lower the grenade is released at strength 0.0 (right click)", _, true, 0.0, true, 64.0);
     g_cvBots         = CreateConVar("sm_nadethrow_bots", "0", "Process bot input", _, true, 0.0, true, 1.0);
     g_cvReleaseGrace = CreateConVar("sm_nadethrow_release_grace", "0.1", "Seconds during which releasing one of two held buttons does not change the strength (0 = strictly the last tick)", _, true, 0.0, true, 0.5);
@@ -558,17 +558,28 @@ bool AdjustProjectile(int entity, int client, float strength, bool fromCmdPost) 
     }
 
     // The game does not overwrite the velocity after this.
-    // The position is passed only when it changes: a teleport to a new position also tells
-    // clients not to interpolate, which may matter for the first frames of the flight.
+    // The position is passed only when it changes. A teleport to a new position marks the
+    // entity as "teleported" for clients (m_ubInterpolationFrame); with that mark a SourceTV
+    // demo showed the grenade starting at the unscaled speed for a moment, without it the
+    // start was smooth. The server state is correct either way, so the mark is undone.
+    // CSS-VERIFY: with m_ubInterpolationFrame restored the start of the flight is smooth
+    // with a lowered release point as well (SourceTV demo, sm_nadethrow_z_offset 12).
     if (lowered) {
+        bool hasInterpFrame = HasEntProp(entity, Prop_Send, "m_ubInterpolationFrame");
+        int interpFrame = hasInterpFrame ? GetEntProp(entity, Prop_Send, "m_ubInterpolationFrame") : 0;
+        int effects = GetEntProp(entity, Prop_Send, "m_fEffects");
         TeleportEntity(entity, newPos, NULL_VECTOR, newVel);
+        LogDebug("projectile %d teleport: interpolation frame %d -> %d, effects %d -> %d", entity, interpFrame,
+            hasInterpFrame ? GetEntProp(entity, Prop_Send, "m_ubInterpolationFrame") : 0,
+            effects, GetEntProp(entity, Prop_Send, "m_fEffects"));
+        if (hasInterpFrame) {
+            SetEntProp(entity, Prop_Send, "m_ubInterpolationFrame", interpFrame);
+        }
     } else {
         TeleportEntity(entity, NULL_VECTOR, NULL_VECTOR, newVel);
     }
 
     // The client builds the start of the trajectory from m_vInitialVelocity; keep it consistent.
-    // CSS-VERIFY: no jerk at the start of the flight for the thrower and for other players,
-    // with real ping, now that this property is updated as well.
     if (HasEntProp(entity, Prop_Send, "m_vInitialVelocity")) {
         SetEntPropVector(entity, Prop_Send, "m_vInitialVelocity", newVel);
     }

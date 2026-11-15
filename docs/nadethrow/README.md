@@ -29,7 +29,7 @@
 | Квар | По умолчанию | Смысл |
 |---|---|---|
 | `sm_nadethrow_enabled` | 1 | включить механику |
-| `sm_nadethrow_min_scale` | 0.3 | доля собственной скорости броска при силе 0.0 |
+| `sm_nadethrow_min_scale` | 0.35 | доля собственной скорости броска при силе 0.0 |
 | `sm_nadethrow_z_offset` | 12.0 | на сколько юнитов ниже вылетает граната при силе 0.0 |
 | `sm_nadethrow_release_grace` | 0.1 | сколько секунд после отпускания одной из двух кнопок сила ещё считается по обеим; 0 — строго по последнему тику |
 | `sm_nadethrow_announce` | 1 | один раз за подключение написать игроку в чат, как бросать с разной силой |
@@ -58,7 +58,7 @@ alias "-jumpthrow" "-jump"
    - скорость: `new = (v - playerVel) * k + playerVel`, `k = min_scale + (1 - min_scale) * strength` — скорость игрока сохраняется, уменьшается только сам бросок;
    - позиция: ниже на `(1 - strength) * z_offset`, если по пути нет стены или пола (иначе остаётся исходной).
 
-   При значениях по умолчанию: ЛКМ+ПКМ — 65 % скорости и −6 юнитов, ПКМ — 30 % и −12.
+   При значениях по умолчанию: ЛКМ+ПКМ — 67,5 % скорости и −6 юнитов, ПКМ — 35 % и −12.
 4. Таймер детонации не меняется.
 
 ## API
@@ -122,7 +122,7 @@ Config file: `cfg/sourcemod/nadethrow.cfg`.
 | ConVar | Default | Meaning |
 |---|---|---|
 | `sm_nadethrow_enabled` | 1 | enable the mechanic |
-| `sm_nadethrow_min_scale` | 0.3 | fraction of the throw's own speed at strength 0.0 |
+| `sm_nadethrow_min_scale` | 0.35 | fraction of the throw's own speed at strength 0.0 |
 | `sm_nadethrow_z_offset` | 12.0 | how many units lower the grenade is released at strength 0.0 |
 | `sm_nadethrow_release_grace` | 0.1 | seconds during which releasing one of two held buttons does not change the strength; 0 = strictly the last tick |
 | `sm_nadethrow_announce` | 1 | tell each player in chat, once per connection, how to throw with different strength |
@@ -151,7 +151,7 @@ Both buttons are then released in the same tick and the strength follows the one
    - velocity: `new = (v - playerVel) * k + playerVel`, `k = min_scale + (1 - min_scale) * strength` — the player's velocity is kept, only the throw itself is scaled;
    - position: lowered by `(1 - strength) * z_offset` unless a wall or floor is in the way (then the original position is kept).
 
-   With defaults: left+right — 65 % speed and −6 units, right — 30 % and −12.
+   With defaults: left+right — 67.5 % speed and −6 units, right — 35 % and −12.
 4. The detonation timer is not changed.
 
 ## API
