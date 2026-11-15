@@ -24,7 +24,7 @@
 #include <sdktools>
 #include <cstrike>
 
-#define PLUGIN_VERSION "2.1.0"
+#define PLUGIN_VERSION "2.2.0"
 
 // User message data in Source is limited to ~255 bytes; KeyHintText adds a string
 // count byte and a terminating zero. Keep a margin.
@@ -57,6 +57,7 @@ ConVar g_cvDebug;
 ConVar g_cvExtraTime;
 ConVar g_cvInterval;
 ConVar g_cvNameLength;
+ConVar g_cvLayout;
 
 enum StopMode {
     Stop_Silent,        // new round, map end: nothing to hide
@@ -130,6 +131,7 @@ public void OnPluginStart() {
     g_cvExtraTime  = CreateConVar("sm_teammoney_extra_time", "5.0", "Seconds to keep showing after freeze time ends", _, true, 0.0, true, 30.0);
     g_cvInterval   = CreateConVar("sm_teammoney_interval", "0.25", "Refresh period in seconds", _, true, 0.1, true, 2.0);
     g_cvNameLength = CreateConVar("sm_teammoney_name_length", "12", "Maximum characters of a player name", _, true, 4.0, true, 32.0);
+    g_cvLayout     = CreateConVar("sm_teammoney_layout", "0", "Line layout: 0 - name, money, equipment; 1 - money, equipment, name", _, true, 0.0, true, 1.0);
     AutoExecConfig(true, "teammoney");
 
     g_cvEnabled.AddChangeHook(OnEnabledChanged);
@@ -395,21 +397,26 @@ void BuildPlayerLine(int client, int viewer, char[] line, int maxlen) {
     ReplaceString(name, sizeof(name), "\n", " ");
     TruncateUtf8(name, g_cvNameLength.IntValue);
 
+    // Everything besides the name and the money: " (dead)", " [FFHS|D]" or nothing.
+    char extra[48];
     if (!IsPlayerAlive(client)) {
         if (g_bHasPhraseDead) {
-            Format(line, maxlen, "%s — $%d (%T)\n", name, g_iMoney[client], "Dead", viewer);
-        } else {
-            Format(line, maxlen, "%s — $%d\n", name, g_iMoney[client]);
+            Format(extra, sizeof(extra), " (%T)", "Dead", viewer);
         }
-        return;
+    } else {
+        char nades[8];
+        GetPlayerNades(client, nades, sizeof(nades));
+        if (nades[0] != '\0') {
+            Format(extra, sizeof(extra), " [%s]", nades);
+        }
     }
 
-    char nades[8];
-    GetPlayerNades(client, nades, sizeof(nades));
-    if (nades[0] != '\0') {
-        Format(line, maxlen, "%s — $%d [%s]\n", name, g_iMoney[client], nades);
+    if (g_cvLayout.IntValue == 1) {
+        // Money first: the font is proportional and KeyHintText has no alignment, so this is
+        // the only way to get a straight left column of money.
+        Format(line, maxlen, "$%d%s %s\n", g_iMoney[client], extra, name);
     } else {
-        Format(line, maxlen, "%s — $%d\n", name, g_iMoney[client]);
+        Format(line, maxlen, "%s — $%d%s\n", name, g_iMoney[client], extra);
     }
 }
 

@@ -16,6 +16,7 @@
 | `sm_teammoney_extra_time` | 5.0 | сколько секунд показывать после конца фризтайма |
 | `sm_teammoney_interval` | 0.25 | период обновления |
 | `sm_teammoney_name_length` | 12 | максимум символов ника |
+| `sm_teammoney_layout` | 0 | вид строки: 0 — `Ник — $4500 [FFHS\|D]`; 1 — `$4500 [FFHS\|D] Ник` (деньги ровным столбцом слева) |
 | `sm_teammoney_debug` | 0 | лог в `logs/teammoney_debug.log` |
 
 ## Как это работает
@@ -29,10 +30,12 @@
 - В одно сообщение помещается около пяти игроков с длинными кириллическими никами; остальные сворачиваются в строку «и ещё N».
 - Изменение `sm_teammoney_interval` применяется со следующего раунда.
 - Наблюдатели HUD не видят.
+- Выровнять текст по колонкам нельзя: шрифт пропорциональный, а KeyHintText не умеет выравнивание. `sm_teammoney_layout 1` даёт только ровный столбец денег слева.
 - Если файла фраз нет, HUD показывается без подписей, в логе ошибок — одна запись.
 
 ## История
 
+- **2.2.0** — пробный вид строки «деньги слева»: `sm_teammoney_layout 1`.
 - **2.1.0** — набор сапёра в HUD: `[FFHS|D]`.
 - **2.0.1** — подписи на языке игрока; проверка фраз перед выводом; скрытие HUD с задержкой; старт показа посреди фризтайма; код на английском.
 - **2.0.0** — переписано на основе sm_team_money 1.0.3.
@@ -66,6 +69,7 @@ The plugin has not been verified on a live server yet. What needs checking is li
 | `sm_teammoney_extra_time` | 5.0 | seconds to keep showing after freeze time ends |
 | `sm_teammoney_interval` | 0.25 | update period |
 | `sm_teammoney_name_length` | 12 | maximum characters of a player name |
+| `sm_teammoney_layout` | 0 | line layout: 0 — `Name — $4500 [FFHS\|D]`; 1 — `$4500 [FFHS\|D] Name` (money as a straight left column) |
 | `sm_teammoney_debug` | 0 | log to `logs/teammoney_debug.log` |
 
 ## How it works
@@ -79,10 +83,12 @@ The plugin has not been verified on a live server yet. What needs checking is li
 - One message fits about five players with long Cyrillic names; the rest are folded into a "+N more" line.
 - A change of `sm_teammoney_interval` takes effect from the next round.
 - Spectators do not see the HUD.
+- The text cannot be aligned in columns: the font is proportional and KeyHintText has no alignment. `sm_teammoney_layout 1` only gives a straight left column of money.
 - If the phrase file is missing, the HUD is shown without labels and one entry is written to the error log.
 
 ## History
 
+- **2.2.0** — experimental "money first" line layout: `sm_teammoney_layout 1`.
 - **2.1.0** — defuse kit in the HUD: `[FFHS|D]`.
 - **2.0.1** — labels in the player's language; phrases are checked before output; delayed HUD hide; start in the middle of freeze time; code in English.
 - **2.0.0** — rewritten on the basis of sm_team_money 1.0.3.
