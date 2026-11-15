@@ -1,9 +1,9 @@
 /*
- * teammoney - team money and grenades in KeyHintText during freeze time.
+ * teammoney - team money, grenades and defuse kits in KeyHintText during freeze time.
  *
  * Layer:   utility
  * Owns:    its own HUD message (KeyHintText) during freeze time and N seconds after it
- * Reads:   money (m_iAccount), players' weapons and ammo, round events
+ * Reads:   money (m_iAccount), players' weapons and ammo, defuse kit (m_bHasDefuser), round events
  * Uses:    nothing
  *
  * Based on sm_team_money 1.0.3. Differences from 1.0.3:
@@ -24,7 +24,7 @@
 #include <sdktools>
 #include <cstrike>
 
-#define PLUGIN_VERSION "2.0.1"
+#define PLUGIN_VERSION "2.1.0"
 
 // User message data in Source is limited to ~255 bytes; KeyHintText adds a string
 // count byte and a terminating zero. Keep a margin.
@@ -90,6 +90,8 @@ bool g_bLoggedNoPhrase;
 
 // Whether weapons have m_iPrimaryAmmoType (otherwise fallback indices are used).
 bool g_bHasAmmoTypeProp;
+// Whether players have m_bHasDefuser (otherwise the defuse kit is not shown).
+bool g_bHasDefuserProp;
 
 // ---------------------------------------------------------------------------
 // Loading
@@ -114,6 +116,12 @@ public void OnPluginStart() {
     g_bHasAmmoTypeProp = FindSendPropInfo("CBaseCombatWeapon", "m_iPrimaryAmmoType") != -1;
     if (!g_bHasAmmoTypeProp) {
         LogError("m_iPrimaryAmmoType not found, using fixed CS:S ammo indices");
+    }
+
+    // CSS-VERIFY: CCSPlayer has m_bHasDefuser in CS:S and it is 1 for a CT with a defuse kit.
+    g_bHasDefuserProp = FindSendPropInfo("CCSPlayer", "m_bHasDefuser") != -1;
+    if (!g_bHasDefuserProp) {
+        LogError("m_bHasDefuser not found, defuse kits will not be shown");
     }
 
     CreateConVar("sm_teammoney_version", PLUGIN_VERSION, "Plugin version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
@@ -415,7 +423,8 @@ public int Sort_ByMoneyDesc(int elem1, int elem2, const int[] array, Handle hndl
     return elem1 - elem2;
 }
 
-// Grenades from the player's weapons: 'F' per flashbang, 'H' for HE, 'S' for smoke. Example: "FFHS".
+// Grenades from the player's weapons: 'F' per flashbang, 'H' for HE, 'S' for smoke, then the
+// defuse kit as 'D' after a '|' separator. Examples: "FFHS", "FFHS|D", "D".
 void GetPlayerNades(int client, char[] buffer, int maxlen) {
     int flashes = 0;
     bool he = false, smoke = false;
@@ -446,6 +455,16 @@ void GetPlayerNades(int client, char[] buffer, int maxlen) {
     }
     if (smoke && pos < maxlen - 1) {
         buffer[pos++] = 'S';
+    }
+    // The separator and the letter go together or not at all.
+    if (g_bHasDefuserProp && GetEntProp(client, Prop_Send, "m_bHasDefuser") != 0) {
+        int need = (pos > 0) ? 2 : 1;
+        if (pos + need <= maxlen - 1) {
+            if (pos > 0) {
+                buffer[pos++] = '|';
+            }
+            buffer[pos++] = 'D';
+        }
     }
     buffer[pos] = '\0';
 }
