@@ -7,29 +7,29 @@
 #define EXAMPLE_API_VERSION 1
 
 /**
- * Активен ли сервис прямо сейчас.
+ * Whether the service is active right now.
  */
 native bool Example_IsActive();
 
 /**
- * Возвращает версию API загруженного плагина (сравнивать с EXAMPLE_API_VERSION).
+ * Returns the API version of the loaded plugin (compare with EXAMPLE_API_VERSION).
  */
 native int Example_GetApiVersion();
 
 /**
- * Уведомление: сервис начал работу.
+ * Notification: the service has started.
  */
 forward void Example_OnStart();
 
 /**
- * Уведомление: сервис закончил работу.
+ * Notification: the service has finished.
  */
 forward void Example_OnEnd();
 
 /**
- * Вето: сервис собирается закончить работу.
+ * Veto: the service is about to finish.
  *
- * @return  Plugin_Handled, чтобы попросить подождать; Plugin_Continue, чтобы разрешить.
+ * @return  Plugin_Handled to ask it to wait; Plugin_Continue to allow.
  */
 forward Action Example_OnEnding();
 

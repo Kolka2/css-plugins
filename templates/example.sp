@@ -1,11 +1,11 @@
 /*
- * example — шаблон плагина-сервиса.
+ * example - service plugin template.
  *
- * Слой:        сервис
- * Владеет:     <что меняет только этот плагин: квары, свойства игроков, фазы>
- * Читает:      <чужое состояние, которое только читает>
- * Использует:  <необязательные зависимости, например warmup>
- * API:         include/example.inc
+ * Layer:   service
+ * Owns:    <what only this plugin changes: cvars, player properties, phases>
+ * Reads:   <foreign state it only reads>
+ * Uses:    <optional dependencies, e.g. warmup>
+ * API:     include/example.inc
  */
 
 #pragma semicolon 1
@@ -21,7 +21,7 @@
 public Plugin myinfo = {
     name        = "[CS:S] Example",
     author      = "you",
-    description = "Шаблон плагина-сервиса",
+    description = "Service plugin template",
     version     = PLUGIN_VERSION,
     url         = ""
 };
@@ -39,7 +39,7 @@ char g_DebugLogPath[PLATFORM_MAX_PATH];
 bool g_bActive;
 
 // ---------------------------------------------------------------------------
-// Загрузка
+// Loading
 // ---------------------------------------------------------------------------
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max) {
@@ -57,9 +57,9 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 public void OnPluginStart() {
     // LoadTranslations("example.phrases");
 
-    CreateConVar("sm_example_version", PLUGIN_VERSION, "Версия плагина", FCVAR_NOTIFY | FCVAR_DONTRECORD);
-    g_cvEnabled = CreateConVar("sm_example_enabled", "1", "Включён ли плагин", _, true, 0.0, true, 1.0);
-    g_cvDebug   = CreateConVar("sm_example_debug", "0", "Подробный лог в logs/example_debug.log", _, true, 0.0, true, 1.0);
+    CreateConVar("sm_example_version", PLUGIN_VERSION, "Plugin version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
+    g_cvEnabled = CreateConVar("sm_example_enabled", "1", "Enable the plugin", _, true, 0.0, true, 1.0);
+    g_cvDebug   = CreateConVar("sm_example_debug", "0", "Verbose log in logs/example_debug.log", _, true, 0.0, true, 1.0);
     AutoExecConfig(true, "example");
 
     g_fwdOnStart  = new GlobalForward("Example_OnStart", ET_Ignore);
@@ -69,13 +69,13 @@ public void OnPluginStart() {
     g_SavedCvars = new StringMap();
     BuildPath(Path_SM, g_DebugLogPath, sizeof(g_DebugLogPath), "logs/example_debug.log");
 
-    // Сервисы меняют состояние в Pre, режимы реагируют в Post.
+    // Services change state in Pre, modes react in Post.
     HookEvent("round_end", Event_RoundEnd, EventHookMode_Pre);
 
-    RegAdminCmd("sm_example_start", Command_Start, ADMFLAG_CHANGEMAP, "Запустить сервис");
-    RegAdminCmd("sm_example_stop", Command_Stop, ADMFLAG_CHANGEMAP, "Остановить сервис");
+    RegAdminCmd("sm_example_start", Command_Start, ADMFLAG_CHANGEMAP, "Start the service");
+    RegAdminCmd("sm_example_stop", Command_Stop, ADMFLAG_CHANGEMAP, "Stop the service");
 
-    // Поздняя загрузка: обработать игроков, которые уже на сервере.
+    // Late load: handle players who are already on the server.
     for (int client = 1; client <= MaxClients; client++) {
         if (IsClientInGame(client)) {
             OnClientPutInServer(client);
@@ -96,7 +96,7 @@ public void OnClientPutInServer(int client) {
 }
 
 // ---------------------------------------------------------------------------
-// Логика
+// Logic
 // ---------------------------------------------------------------------------
 
 void Start() {
@@ -112,7 +112,7 @@ void Start() {
     Call_Finish();
 }
 
-// notify = false — тихая остановка (смена карты, выгрузка): без форвардов.
+// notify = false: silent stop (map change, unload), no forwards.
 void Stop(bool notify) {
     if (!g_bActive) {
         return;
@@ -128,7 +128,7 @@ void Stop(bool notify) {
     }
 }
 
-// Спросить подписчиков, можно ли закончить (форвард с вето).
+// Ask subscribers whether we may finish (veto forward).
 bool CanStop() {
     Action result = Plugin_Continue;
     Call_StartForward(g_fwdOnEnding);
@@ -157,8 +157,8 @@ public Action Command_Stop(int client, int args) {
     return Plugin_Handled;
 }
 
-// Таймеры получают userid, а не индекс клиента: за секунду игрок может выйти,
-// а его слот занять другой.
+// Timers get a userid, not a client index: within a second the player may leave
+// and somebody else may take the slot.
 stock void ExampleDelayedAction(int client) {
     CreateTimer(1.0, Timer_DelayedAction, GetClientUserId(client), TIMER_FLAG_NO_MAPCHANGE);
 }
@@ -173,7 +173,7 @@ public Action Timer_DelayedAction(Handle timer, int userid) {
 }
 
 // ---------------------------------------------------------------------------
-// Нативы
+// Natives
 // ---------------------------------------------------------------------------
 
 public int Native_IsActive(Handle plugin, int numParams) {
@@ -185,10 +185,10 @@ public int Native_GetApiVersion(Handle plugin, int numParams) {
 }
 
 // ---------------------------------------------------------------------------
-// Вспомогательное
+// Helpers
 // ---------------------------------------------------------------------------
 
-// Меняет квар, запомнив исходное значение (только при первом изменении).
+// Changes a cvar, remembering the original value (on the first change only).
 void SetCvarTemporarily(const char[] name, const char[] value) {
     ConVar cvar = FindConVar(name);
     if (cvar == null) {
@@ -204,7 +204,7 @@ void SetCvarTemporarily(const char[] name, const char[] value) {
     cvar.SetString(value);
 }
 
-// Возвращает все квары, изменённые через SetCvarTemporarily.
+// Restores every cvar changed through SetCvarTemporarily.
 void RestoreCvars() {
     StringMapSnapshot snapshot = g_SavedCvars.Snapshot();
     char name[128], value[256];

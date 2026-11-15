@@ -1,9 +1,9 @@
 /*
- * example_consumer — шаблон плагина, который НЕОБЯЗАТЕЛЬНО использует сервис example.
+ * example_consumer - template of a plugin that OPTIONALLY uses the example service.
  *
- * Слой:        режим
- * Владеет:     <...>
- * Использует:  example (необязательно)
+ * Layer:   mode
+ * Owns:    <...>
+ * Uses:    example (optional)
  */
 
 #pragma semicolon 1
@@ -18,7 +18,7 @@
 public Plugin myinfo = {
     name        = "[CS:S] Example consumer",
     author      = "you",
-    description = "Шаблон плагина с необязательной зависимостью",
+    description = "Template of a plugin with an optional dependency",
     version     = "0.1.0",
     url         = ""
 };
@@ -41,28 +41,28 @@ public void OnLibraryRemoved(const char[] name) {
     }
 }
 
-// Все обращения к сервису — только через такие обёртки.
+// Every call to the service goes through wrappers like this one.
 bool IsExampleActive() {
     return g_bHasExample && Example_IsActive();
 }
 
-// Форварды сервиса: если сервис не загружен, они просто не вызываются.
+// Service forwards: if the service is not loaded, they are simply never called.
 public void Example_OnEnd() {
-    // начать работу режима
+    // start the mode
 }
 
 public Action Example_OnEnding() {
-    // return Plugin_Handled;  // попросить подождать
+    // return Plugin_Handled;  // ask to wait
     return Plugin_Continue;
 }
 
 public void OnPluginStart() {
-    HookEvent("player_spawn", Event_PlayerSpawn);  // режимы — в Post (по умолчанию)
+    HookEvent("player_spawn", Event_PlayerSpawn);  // modes hook in Post (the default)
 }
 
 public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast) {
     if (IsExampleActive()) {
-        return;  // во время работы сервиса режим не вмешивается
+        return;  // the mode stays out while the service is active
     }
     // ...
 }
