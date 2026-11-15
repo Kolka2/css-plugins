@@ -39,7 +39,7 @@
 | Плагин | Слой | Состояние |
 |---|---|---|
 | `teammoney` | утилита | готов, ждёт проверки на сервере (`docs/teammoney/README.md`) |
-| `nadethrow` | сервис | задание `tasks/NADETHROW_TASK.md` |
+| `nadethrow` | сервис | готов, ждёт проверки на сервере (`docs/nadethrow/README.md`, `docs/nadethrow/TEST_CHECKLIST.md`) |
 | `nadepractice` | режим | задание `tasks/PRACTICE_TASK.md` |
 | `lineups`, `botcontrol`, `executes` | сервисы, режим | черновик `tasks/EXECUTES_TASK.md` |
 | `botassist`, `botnav` | утилита, сервис | черновик `tasks/BOTS_TASK.md` |

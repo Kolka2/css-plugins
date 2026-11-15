@@ -1,0 +1,159 @@
+# nadethrow — броски гранат разной силы (CS:S)
+
+[English version below](#english)
+
+Сервис. Добавляет в CS:S броски гранат, как в CS:GO:
+
+| Кнопки в момент броска | Сила | Бросок |
+|---|---|---|
+| ЛКМ | 1.0 | обычный, плагин ничего не меняет |
+| ЛКМ + ПКМ | 0.5 | средний |
+| ПКМ | 0.0 | лёгкий, «снизу» |
+
+Пока граната в руке с выдернутой чекой, силу можно менять, зажимая и отпуская кнопки. Бросок происходит, когда отпущены обе.
+
+**Не проверено на сервере.** Всё, что зависит от движка, помечено в коде `CSS-VERIFY` и собрано в [TEST_CHECKLIST.md](TEST_CHECKLIST.md).
+
+## Установка
+
+- `build/nadethrow.smx` → `addons/sourcemod/plugins/`
+- `translations/nadethrow.phrases.txt`, `translations/ru/nadethrow.phrases.txt` → `addons/sourcemod/translations/` (и `ru/`)
+- для плагинов, использующих API: `scripting/include/nadethrow.inc`
+
+Зависимостей нет (sdktools, sdkhooks). Без gamedata.
+
+## Квары
+
+Конфиг: `cfg/sourcemod/nadethrow.cfg`.
+
+| Квар | По умолчанию | Смысл |
+|---|---|---|
+| `sm_nadethrow_enabled` | 1 | включить механику |
+| `sm_nadethrow_min_scale` | 0.3 | доля собственной скорости броска при силе 0.0 |
+| `sm_nadethrow_z_offset` | 12.0 | на сколько юнитов ниже вылетает граната при силе 0.0 |
+| `sm_nadethrow_release_grace` | 0.1 | сколько секунд после отпускания одной из двух кнопок сила ещё считается по обеим; 0 — строго по последнему тику |
+| `sm_nadethrow_hint` | 0 | показывать силу броска текстом по центру, пока чека выдернута |
+| `sm_nadethrow_bots` | 0 | обрабатывать ли ввод ботов |
+| `sm_nadethrow_debug` | 0 | лог в `logs/nadethrow_debug.log`: сила, скорость и позиция до и после поправки |
+| `sm_nadethrow_version` | — | версия |
+
+Команд нет.
+
+## Как это работает
+
+1. **Ввод.** Пока в руке `weapon_hegrenade`, `weapon_flashbang` или `weapon_smokegrenade` и зажата ПКМ, плагин подменяет её на `IN_ATTACK`: игра выдёргивает чеку и держит гранату как обычно. Если зажата только ЛКМ, команда игрока не меняется вообще.
+2. **Сила.** Считается по зажатым кнопкам. Когда отпущены обе и чека была выдернута, сила запоминается; игра создаёт снаряд примерно через 0.1 с.
+3. **Снаряд.** При силе меньше 1.0:
+   - скорость: `new = (v - playerVel) * k + playerVel`, `k = min_scale + (1 - min_scale) * strength` — скорость игрока сохраняется, уменьшается только сам бросок;
+   - позиция: ниже на `(1 - strength) * z_offset`, если по пути нет стены или пола (иначе остаётся исходной).
+
+   При значениях по умолчанию: ЛКМ+ПКМ — 65 % скорости и −6 юнитов, ПКМ — 30 % и −12.
+4. Таймер детонации не меняется.
+
+## API
+
+`scripting/include/nadethrow.inc`, библиотека `nadethrow`, версия API 1.
+
+```sourcepawn
+native int   Nadethrow_GetApiVersion();
+native bool  Nadethrow_IsEnabled();
+native float Nadethrow_GetThrowStrength(int client);  // 0.0–1.0 при выдернутой чеке, иначе -1.0
+native float Nadethrow_GetMinScale();
+native float Nadethrow_GetZOffset();
+
+forward void Nadethrow_OnGrenadeThrown(int client, int projectile, float strength);
+```
+
+- `Nadethrow_OnGrenadeThrown` вызывается после поправки снаряда, для любых бросков, включая силу 1.0 и броски ботов. Если плагин выключен — не вызывается.
+- Для предпросмотра траектории в другом плагине достаточно `GetThrowStrength`, `GetMinScale`, `GetZOffset` и формул выше.
+- Подключать как необязательную зависимость (раздел 6 `ARCHITECTURE.md`).
+
+## Известные ограничения
+
+- Анимация броска в CS:S одна: бросок «снизу» выглядит как обычный, и от первого лица, и со стороны.
+- Клиент не знает, что ПКМ выдёргивает чеку, поэтому анимация рук при ПКМ приходит с сервера и может запаздывать на величину пинга.
+- Средний бросок: если отпустить одну кнопку и держать вторую дольше `sm_nadethrow_release_grace`, сила изменится на силу оставшейся кнопки. Это поведение по заданию; пауза нужна только для того, чтобы «отпустил обе почти одновременно» давало средний бросок.
+- ПКМ с гранатой в руке больше не доходит до игры и других плагинов (если им нужен `IN_ATTACK2` с гранатой).
+- Ввод ботов обрабатывается только при `sm_nadethrow_bots 1`; сами боты ПКМ не нажимают.
+- Значения `min_scale` и `z_offset` — приблизительные, из CS:GO; их нужно подобрать на сервере.
+
+---
+
+<a name="english"></a>
+
+# nadethrow — variable-strength grenade throws (CS:S)
+
+A service plugin that adds CS:GO-style grenade throws to Counter-Strike: Source:
+
+| Buttons at the moment of the throw | Strength | Throw |
+|---|---|---|
+| Left click | 1.0 | normal, the plugin changes nothing |
+| Left + right click | 0.5 | medium |
+| Right click | 0.0 | light, underhand |
+
+While the pin is pulled, the strength follows the buttons currently held. The grenade is thrown when both are released.
+
+**Not tested on a live server.** Everything that depends on engine behaviour is marked `CSS-VERIFY` in the code and listed in [TEST_CHECKLIST.md](TEST_CHECKLIST.md).
+
+## Installation
+
+- `build/nadethrow.smx` → `addons/sourcemod/plugins/`
+- `translations/nadethrow.phrases.txt`, `translations/ru/nadethrow.phrases.txt` → `addons/sourcemod/translations/` (and `ru/`)
+- for plugins that use the API: `scripting/include/nadethrow.inc`
+
+No dependencies (sdktools, sdkhooks) and no gamedata.
+
+## ConVars
+
+Config file: `cfg/sourcemod/nadethrow.cfg`.
+
+| ConVar | Default | Meaning |
+|---|---|---|
+| `sm_nadethrow_enabled` | 1 | enable the mechanic |
+| `sm_nadethrow_min_scale` | 0.3 | fraction of the throw's own speed at strength 0.0 |
+| `sm_nadethrow_z_offset` | 12.0 | how many units lower the grenade is released at strength 0.0 |
+| `sm_nadethrow_release_grace` | 0.1 | seconds during which releasing one of two held buttons does not change the strength; 0 = strictly the last tick |
+| `sm_nadethrow_hint` | 0 | show the throw strength as centre text while the pin is pulled |
+| `sm_nadethrow_bots` | 0 | process bot input |
+| `sm_nadethrow_debug` | 0 | log to `logs/nadethrow_debug.log`: strength, velocity and position before and after the adjustment |
+| `sm_nadethrow_version` | — | version |
+
+No commands.
+
+## How it works
+
+1. **Input.** While `weapon_hegrenade`, `weapon_flashbang` or `weapon_smokegrenade` is the active weapon and right click is held, the plugin replaces it with `IN_ATTACK`, so the game pulls the pin and holds the grenade as usual. With left click only, the player's command is not touched at all.
+2. **Strength.** Derived from the held buttons. When both are released and the pin was pulled, the strength is remembered; the game creates the projectile about 0.1 s later.
+3. **Projectile.** For strength below 1.0:
+   - velocity: `new = (v - playerVel) * k + playerVel`, `k = min_scale + (1 - min_scale) * strength` — the player's velocity is kept, only the throw itself is scaled;
+   - position: lowered by `(1 - strength) * z_offset` unless a wall or floor is in the way (then the original position is kept).
+
+   With defaults: left+right — 65 % speed and −6 units, right — 30 % and −12.
+4. The detonation timer is not changed.
+
+## API
+
+`scripting/include/nadethrow.inc`, library `nadethrow`, API version 1.
+
+```sourcepawn
+native int   Nadethrow_GetApiVersion();
+native bool  Nadethrow_IsEnabled();
+native float Nadethrow_GetThrowStrength(int client);  // 0.0–1.0 while the pin is pulled, otherwise -1.0
+native float Nadethrow_GetMinScale();
+native float Nadethrow_GetZOffset();
+
+forward void Nadethrow_OnGrenadeThrown(int client, int projectile, float strength);
+```
+
+- `Nadethrow_OnGrenadeThrown` fires after the projectile has been adjusted, for every throw, including strength 1.0 and bot throws. It does not fire while the plugin is disabled.
+- A trajectory preview in another plugin only needs `GetThrowStrength`, `GetMinScale`, `GetZOffset` and the formulas above.
+- Use it as an optional dependency (`ARCHITECTURE.md`, section 6).
+
+## Known limitations
+
+- CS:S has a single throw animation: an underhand throw looks like a normal one in both first and third person.
+- The client does not know that right click pulls the pin, so the viewmodel animation on right click comes from the server and may lag by the player's ping.
+- Medium throw: releasing one button and holding the other for longer than `sm_nadethrow_release_grace` switches the strength to the remaining button. The grace period only exists so that "released both almost at once" still gives a medium throw.
+- Right click with a grenade in hand no longer reaches the game or other plugins.
+- Bot input is processed only with `sm_nadethrow_bots 1`; bots never press right click on their own.
+- `min_scale` and `z_offset` are approximate CS:GO values and need tuning on the server.
