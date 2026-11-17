@@ -9,6 +9,7 @@ void Practice_Init() {
     RegConsoleCmd("sm_back", Command_Back, "Return to the position of the last throw");
     RegConsoleCmd("sm_last", Command_Last, "Replay the last throw");
     RegConsoleCmd("sm_noflash", Command_NoFlash, "Do not get flashed (toggle)");
+    RegConsoleCmd("sm_hands", Command_Hands, "Bring back the first person weapon and hands model");
 
     // sm_noclip may be taken by the funcommands admin command. A command listener runs
     // before the handlers, so while the mode is active !noclip is ours, and outside
@@ -153,46 +154,230 @@ void Practice_TryRespawn(int client, const char[] reason) {
 // Infinite grenades
 // ---------------------------------------------------------------------------
 
-// Called one frame after the projectile appeared.
+// Called one frame after the projectile appeared. At this moment the thrown grenade is
+// playing its throw animation (m_bRedraw) with 0 ammo; when the animation ends the game
+// either draws it again (ammo > 0) or removes it. Ammo is given back only while the weapon
+// still belongs to the player and is not being removed, so the two never race.
 void Practice_OnThrow(int client, int nade) {
     if (!g_cvInfinite.BoolValue) {
         return;
     }
+    Practice_LogViewModel(client, "throw");
 
     // Way 1: give the ammo back before the game removes the grenade from the hands,
-    // so it is simply drawn again.
-    // CSS-VERIFY: after a throw with restored ammo the player keeps the same grenade in hand.
+    // so it is simply drawn again. Confirmed on the server: no "refill" lines in the log.
     int weapon = FindWeaponByClass(client, g_NadeWeapon[nade]);
-    if (weapon != -1 && HasEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType")) {
+    if (weapon != -1 && Practice_WeaponKept(client, weapon) && HasEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType")) {
         int ammoType = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType");
         if (ammoType >= 0 && ammoType < GetEntPropArraySize(client, Prop_Send, "m_iAmmo")
             && GetEntProp(client, Prop_Send, "m_iAmmo", _, ammoType) < 1) {
             SetEntProp(client, Prop_Send, "m_iAmmo", 1, _, ammoType);
         }
+    } else {
+        LogDebug("refill: %N %s is gone or being removed, waiting for the timer", client, g_NadeWeapon[nade]);
     }
 
     // Way 2 (fallback): if the grenade is gone anyway, give a new one.
+    Practice_StartRefillTimer(client, nade, 1.2, 0);
+}
+
+void Practice_StartRefillTimer(int client, int nade, float delay, int attempt) {
     DataPack pack;
-    CreateDataTimer(1.2, Timer_Refill, pack, TIMER_FLAG_NO_MAPCHANGE);
+    CreateDataTimer(delay, Timer_Refill, pack, TIMER_FLAG_NO_MAPCHANGE);
     pack.WriteCell(GetClientUserId(client));
     pack.WriteCell(nade);
+    pack.WriteCell(attempt);
 }
 
 public Action Timer_Refill(Handle timer, DataPack pack) {
     pack.Reset();
     int client = GetClientOfUserId(pack.ReadCell());
     int nade = pack.ReadCell();
+    int attempt = pack.ReadCell();
     if (client == 0 || !g_bActive || !IsHuman(client) || !IsPlayerAlive(client)) {
         return Plugin_Stop;
     }
-    if (FindWeaponByClass(client, g_NadeWeapon[nade]) == -1) {
-        GivePlayerItem(client, g_NadeWeapon[nade]);
-        LogDebug("refill: %N got %s by timer (ammo restore did not keep the weapon)", client, g_NadeWeapon[nade]);
-        if (GetActiveNade(client) == NADE_NONE) {
-            FakeClientCommand(client, "use %s", g_NadeWeapon[nade]);
+    if (FindWeaponByClass(client, g_NadeWeapon[nade]) != -1) {
+        return Plugin_Stop;
+    }
+    // Do not hand out weapons in the middle of another throw: try again a bit later.
+    if (Practice_IsThrowing(client) && attempt < 5) {
+        Practice_StartRefillTimer(client, nade, 0.5, attempt + 1);
+        return Plugin_Stop;
+    }
+    GivePlayerItem(client, g_NadeWeapon[nade]);
+    LogDebug("refill: %N got %s by timer (ammo restore did not keep the weapon)", client, g_NadeWeapon[nade]);
+    if (GetActiveNade(client) == NADE_NONE) {
+        FakeClientCommand(client, "use %s", g_NadeWeapon[nade]);
+    }
+    Practice_LogViewModel(client, "refill");
+    return Plugin_Stop;
+}
+
+// The weapon still belongs to the player and is not marked for removal.
+bool Practice_WeaponKept(int client, int weapon) {
+    return GetEntPropEnt(weapon, Prop_Data, "m_hOwnerEntity") == client && !(GetEntityFlags(weapon) & FL_KILLME);
+}
+
+// The active weapon is a grenade that is being thrown: pin pulled, throw scheduled or
+// the throw animation still playing.
+bool Practice_IsThrowing(int client) {
+    int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+    if (weapon <= MaxClients || !IsValidEntity(weapon) || GetActiveNade(client) == NADE_NONE) {
+        return false;
+    }
+    if (HasEntProp(weapon, Prop_Send, "m_bPinPulled") && GetEntProp(weapon, Prop_Send, "m_bPinPulled")) {
+        return true;
+    }
+    if (HasEntProp(weapon, Prop_Send, "m_fThrowTime") && GetEntPropFloat(weapon, Prop_Send, "m_fThrowTime") > 0.0) {
+        return true;
+    }
+    return HasEntProp(weapon, Prop_Send, "m_bRedraw") && GetEntProp(weapon, Prop_Send, "m_bRedraw") != 0;
+}
+
+// Switches to a grenade only when that cannot break a throw: the player holds no grenade,
+// or holds another grenade that is idle.
+void Practice_SwitchToNade(int client, int nade, const char[] where) {
+    int active = GetActiveNade(client);
+    Practice_LogViewModel(client, where);
+    if (active == nade) {
+        return;
+    }
+    if (active != NADE_NONE && Practice_IsThrowing(client)) {
+        LogDebug("%s: %N is throwing a grenade, no weapon switch", where, client);
+        return;
+    }
+    FakeClientCommand(client, "use %s", g_NadeWeapon[nade]);
+}
+
+// ---------------------------------------------------------------------------
+// Viewmodel (first person weapon and hands). The owner once lost it after dying from
+// their own HE and coming back by changing teams; it came back after a reconnect.
+// ---------------------------------------------------------------------------
+
+// Debug log: everything that decides whether the first person model is drawn.
+void Practice_LogViewModel(int client, const char[] where) {
+    if (!g_cvDebug.BoolValue || !IsClientInGame(client)) {
+        return;
+    }
+    char classname[32] = "none";
+    int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+    int pin = -1, redraw = -1;
+    float throwTime = -1.0;
+    if (weapon > MaxClients && IsValidEntity(weapon)) {
+        GetEntityClassname(weapon, classname, sizeof(classname));
+        if (HasEntProp(weapon, Prop_Send, "m_bPinPulled")) {
+            pin = GetEntProp(weapon, Prop_Send, "m_bPinPulled");
+            redraw = GetEntProp(weapon, Prop_Send, "m_bRedraw");
+            throwTime = GetEntPropFloat(weapon, Prop_Send, "m_fThrowTime");
         }
     }
+    int vm = GetEntPropEnt(client, Prop_Send, "m_hViewModel", 0);
+    int vmEffects = (vm > MaxClients && IsValidEntity(vm)) ? GetEntProp(vm, Prop_Send, "m_fEffects") : -1;
+    int draw = HasEntProp(client, Prop_Send, "m_bDrawViewmodel") ? GetEntProp(client, Prop_Send, "m_bDrawViewmodel") : -1;
+    int observer = HasEntProp(client, Prop_Send, "m_iObserverMode") ? GetEntProp(client, Prop_Send, "m_iObserverMode") : -1;
+    LogDebug("viewmodel [%s]: %N alive=%d team=%d observer=%d weapon=%s(%d) pin=%d throwtime=%.2f redraw=%d vm=%d drawviewmodel=%d vm_effects=%d nodraw=%d",
+        where, client, IsPlayerAlive(client), GetClientTeam(client), observer, classname, weapon, pin, throwTime, redraw,
+        vm, draw, vmEffects, (vmEffects != -1 && (vmEffects & NP_EF_NODRAW)) ? 1 : 0);
+}
+
+// Restores the first person model. force = also when nothing looks broken (!hands).
+// Returns true if something was fixed or a redraw was forced.
+// CSS-VERIFY: m_bDrawViewmodel = 1, EF_NODRAW removed from the viewmodel and a weapon switch
+// there and back bring the hands back in the scenarios from TEST_CHECKLIST (stage 8.3).
+bool Practice_FixHands(int client, bool force, const char[] where) {
+    if (!IsHuman(client) || !IsPlayerAlive(client)) {
+        return false;
+    }
+    Practice_LogViewModel(client, where);
+    bool broken = false;
+
+    if (HasEntProp(client, Prop_Send, "m_bDrawViewmodel") && GetEntProp(client, Prop_Send, "m_bDrawViewmodel") == 0) {
+        SetEntProp(client, Prop_Send, "m_bDrawViewmodel", 1);
+        broken = true;
+    }
+    int vm = GetEntPropEnt(client, Prop_Send, "m_hViewModel", 0);
+    if (vm > MaxClients && IsValidEntity(vm)) {
+        int effects = GetEntProp(vm, Prop_Send, "m_fEffects");
+        if (effects & NP_EF_NODRAW) {
+            SetEntProp(vm, Prop_Send, "m_fEffects", effects & ~NP_EF_NODRAW);
+            broken = true;
+        }
+    } else {
+        broken = true;      // no viewmodel at all: a weapon switch may recreate it
+    }
+
+    if (!broken && !force) {
+        return false;
+    }
+    LogDebug("hands [%s]: %N, broken=%d, switching weapons there and back", where, client, broken);
+
+    // Switch to another weapon and back in the next frame: the deploy redraws the viewmodel.
+    int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
+    if (weapon <= MaxClients || !IsValidEntity(weapon) || Practice_IsThrowing(client)) {
+        return broken;
+    }
+    char current[32], other[32];
+    GetEntityClassname(weapon, current, sizeof(current));
+    if (!Practice_FindOtherWeapon(client, current, other, sizeof(other))) {
+        return broken;
+    }
+    FakeClientCommand(client, "use %s", other);
+    DataPack pack = new DataPack();
+    pack.WriteCell(GetClientUserId(client));
+    pack.WriteString(current);
+    RequestFrame(Frame_HandsBack, pack);
+    return true;
+}
+
+// The knife if the player holds something else, otherwise any other weapon.
+bool Practice_FindOtherWeapon(int client, const char[] current, char[] other, int maxlen) {
+    if (!StrEqual(current, "weapon_knife") && FindWeaponByClass(client, "weapon_knife") != -1) {
+        strcopy(other, maxlen, "weapon_knife");
+        return true;
+    }
+    int size = GetEntPropArraySize(client, Prop_Send, "m_hMyWeapons");
+    for (int i = 0; i < size; i++) {
+        int weapon = GetEntPropEnt(client, Prop_Send, "m_hMyWeapons", i);
+        if (weapon <= MaxClients || !IsValidEntity(weapon)) {
+            continue;
+        }
+        GetEntityClassname(weapon, other, maxlen);
+        if (!StrEqual(other, current)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+public void Frame_HandsBack(DataPack pack) {
+    pack.Reset();
+    int client = GetClientOfUserId(pack.ReadCell());
+    char current[32];
+    pack.ReadString(current, sizeof(current));
+    delete pack;
+    if (client == 0 || !IsHuman(client) || !IsPlayerAlive(client)) {
+        return;
+    }
+    FakeClientCommand(client, "use %s", current);
+    Practice_LogViewModel(client, "hands back");
+}
+
+// After every spawn: fix the hands if they look broken.
+public Action Timer_CheckHands(Handle timer, int userid) {
+    int client = GetClientOfUserId(userid);
+    if (client != 0 && g_bActive && Practice_FixHands(client, false, "spawn")) {
+        LogDebug("hands: %N fixed after spawn", client);
+    }
     return Plugin_Stop;
+}
+
+public Action Command_Hands(int client, int args) {
+    if (CanPractice(client)) {
+        Practice_FixHands(client, true, "!hands");
+        NP_Print(client, "%t", "Hands Fixed");
+    }
+    return Plugin_Handled;
 }
 
 // ---------------------------------------------------------------------------
@@ -355,6 +540,7 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_AddToggle(menu, client, "preview", "Menu Preview", g_bPreview[client]);
     Menu_AddToggle(menu, client, "hints", "Menu Hints", g_bHints[client]);
     Menu_AddToggle(menu, client, "noflash", "Menu Noflash", g_bNoFlash[client]);
+    Menu_AddPhrase(menu, client, "hands", "Menu Hands");
     Menu_AddPhrase(menu, client, "preverror", "Menu PrevError");
     Menu_AddPhrase(menu, client, "help", "Menu Help");
 
@@ -397,6 +583,11 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
         Hints_Toggle(client);
     } else if (StrEqual(info, "noflash")) {
         g_bNoFlash[client] = !g_bNoFlash[client];
+    } else if (StrEqual(info, "hands")) {
+        if (CanPractice(client)) {
+            Practice_FixHands(client, true, "menu");
+            NP_Print(client, "%t", "Hands Fixed");
+        }
     } else if (StrEqual(info, "preverror")) {
         Preview_TellStats(client);
     } else if (StrEqual(info, "help")) {

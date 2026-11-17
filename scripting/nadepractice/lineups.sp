@@ -259,10 +259,10 @@ void Lineups_Goto(int client, int index) {
     angles[2] = 0.0;
     TeleportEntity(client, origin, angles, view_as<float>({ 0.0, 0.0, 0.0 }));
 
-    if (FindWeaponByClass(client, g_NadeWeapon[lineup.nade]) == -1) {
+    if (FindWeaponByClass(client, g_NadeWeapon[lineup.nade]) == -1 && !Practice_IsThrowing(client)) {
         GivePlayerItem(client, g_NadeWeapon[lineup.nade]);
     }
-    FakeClientCommand(client, "use %s", g_NadeWeapon[lineup.nade]);
+    Practice_SwitchToNade(client, lineup.nade, "goto");
 
     Hints_Select(client, lineup.id);
     char nadeName[48], throwName[48];

@@ -294,4 +294,12 @@
         "#format"   "{1:d},{2:.1f},{3:.1f},{4:.1f}"
         "en"        "Preview accuracy: {1} throws, average error {2}, max {3}, last {4} units."
     }
+    "Menu Hands"
+    {
+        "en"        "Fix missing hands / weapon model"
+    }
+    "Hands Fixed"
+    {
+        "en"        "First person model refreshed. If the hands are still missing, reconnect and tell the admin (debug log: \"viewmodel\")."
+    }
 }

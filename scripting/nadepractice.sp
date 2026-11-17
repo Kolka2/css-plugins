@@ -69,6 +69,8 @@ public Plugin myinfo = {
 #define MAX_TRAJ_POINTS  256    // points in one recorded trajectory
 #define RUN_SPEED        60.0   // horizontal speed above which a throw counts as "running"
 
+#define NP_EF_NODRAW     32     // EF_NODRAW entity effect
+
 // Chat prefix: brackets in the default color, the plugin name in green (CLAUDE.md).
 #define CHAT_PREFIX "\x01[\x04NadePractice\x01] "
 
@@ -572,6 +574,7 @@ bool Mode_Start() {
     for (int client = 1; client <= MaxClients; client++) {
         if (IsHuman(client)) {
             Practice_Equip(client);
+            Practice_LogViewModel(client, "mode start");
         }
     }
 
@@ -640,7 +643,10 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
         return;
     }
     // Equip a moment after the spawn: by then the game has handed out its own items.
-    CreateTimer(0.1, Timer_Equip, event.GetInt("userid"), TIMER_FLAG_NO_MAPCHANGE);
+    int userid = event.GetInt("userid");
+    CreateTimer(0.1, Timer_Equip, userid, TIMER_FLAG_NO_MAPCHANGE);
+    // Check the first person model once the weapon has been deployed.
+    CreateTimer(0.5, Timer_CheckHands, userid, TIMER_FLAG_NO_MAPCHANGE);
 }
 
 public Action Timer_Equip(Handle timer, int userid) {
