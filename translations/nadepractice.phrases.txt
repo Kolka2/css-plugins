@@ -1,0 +1,297 @@
+"Phrases"
+{
+    "Mode Started"
+    {
+        "en"        "Nade practice mode started. Type !practice for the menu."
+    }
+    "Mode Stopped"
+    {
+        "en"        "Nade practice mode stopped."
+    }
+    "Mode Inactive"
+    {
+        "en"        "Nade practice mode is not active."
+    }
+    "Must Be Alive"
+    {
+        "en"        "You must be alive to do that."
+    }
+    "On"
+    {
+        "en"        "on"
+    }
+    "Off"
+    {
+        "en"        "off"
+    }
+    "Noclip On"
+    {
+        "en"        "Noclip enabled."
+    }
+    "Noclip Off"
+    {
+        "en"        "Noclip disabled."
+    }
+    "No Last Throw"
+    {
+        "en"        "No throw recorded yet: throw a grenade first."
+    }
+    "Returned Back"
+    {
+        "#format"   "{1:s}"
+        "en"        "Back to the last throw position (throw: {1})."
+    }
+    "Replay Cooldown"
+    {
+        "en"        "Too fast, wait a moment."
+    }
+    "Replay Drawn"
+    {
+        "en"        "Replay: the saved trajectory is drawn."
+    }
+    "Replay Failed"
+    {
+        "en"        "Cannot replay this throw: no projectile data."
+    }
+    "Traces Cleared"
+    {
+        "en"        "Your trajectories are cleared."
+    }
+    "Nade HE"
+    {
+        "en"        "HE"
+    }
+    "Nade Flash"
+    {
+        "en"        "Flash"
+    }
+    "Nade Smoke"
+    {
+        "en"        "Smoke"
+    }
+    "Throw Stand"
+    {
+        "en"        "standing"
+    }
+    "Throw Crouch"
+    {
+        "en"        "crouched"
+    }
+    "Throw Jump"
+    {
+        "en"        "jump throw"
+    }
+    "Throw Run"
+    {
+        "en"        "running"
+    }
+    "Throw RunJump"
+    {
+        "en"        "run + jump throw"
+    }
+    "Menu Title"
+    {
+        "en"        "Nade practice"
+    }
+    "Menu Lineups"
+    {
+        "en"        "Lineups"
+    }
+    "Menu Last"
+    {
+        "en"        "Repeat last throw"
+    }
+    "Menu Back"
+    {
+        "en"        "Back to last throw position"
+    }
+    "Menu Noclip"
+    {
+        "en"        "Noclip"
+    }
+    "Menu Clear"
+    {
+        "en"        "Clear trajectories"
+    }
+    "Menu Tracer"
+    {
+        "en"        "Throw tracer"
+    }
+    "Menu Preview"
+    {
+        "en"        "Trajectory preview"
+    }
+    "Menu Hints"
+    {
+        "en"        "Lineup hints"
+    }
+    "Menu Noflash"
+    {
+        "en"        "No flash blindness"
+    }
+    "Menu PrevError"
+    {
+        "en"        "Preview accuracy"
+    }
+    "Menu Help"
+    {
+        "en"        "Commands"
+    }
+    "Help Line 1"
+    {
+        "en"        "!noclip !back !last !clear !tracer !preview !preverror !hints !noflash"
+    }
+    "Help Line 2"
+    {
+        "en"        "!save <name> - save the last throw; !lineups; !goto <name>; !show <name>"
+    }
+    "Help Line 3"
+    {
+        "en"        "For the selected lineup: !delete, !rename <new name>, !desc <text>"
+    }
+    "Usage Save"
+    {
+        "en"        "Usage: !save <name>"
+    }
+    "Usage Rename"
+    {
+        "en"        "Usage: !rename <new name> (renames the selected lineup)"
+    }
+    "Wait Detonation"
+    {
+        "en"        "Wait until the grenade detonates, then save."
+    }
+    "No Edit Access"
+    {
+        "en"        "You are not allowed to change the lineup database."
+    }
+    "No Lineup Selected"
+    {
+        "en"        "No lineup selected: use !lineups or !goto <name>."
+    }
+    "Lineup Not Found"
+    {
+        "#format"   "{1:s}"
+        "en"        "Lineup \"{1}\" not found."
+    }
+    "Lineup Ambiguous"
+    {
+        "#format"   "{1:s}"
+        "en"        "Several lineups match \"{1}\", be more specific."
+    }
+    "Lineup Exists"
+    {
+        "#format"   "{1:s}"
+        "en"        "Lineup \"{1}\" already exists."
+    }
+    "Lineup Saved"
+    {
+        "#format"   "{1:s},{2:s},{3:s}"
+        "en"        "Lineup \"{1}\" saved ({2}, {3})."
+    }
+    "Lineup Goto"
+    {
+        "#format"   "{1:s},{2:s},{3:s}"
+        "en"        "Lineup \"{1}\": {2}, {3}."
+    }
+    "Lineup Show"
+    {
+        "#format"   "{1:s}"
+        "en"        "Replaying lineup \"{1}\"."
+    }
+    "Lineup Deleted"
+    {
+        "#format"   "{1:s}"
+        "en"        "Lineup \"{1}\" deleted."
+    }
+    "Lineup Renamed"
+    {
+        "#format"   "{1:s},{2:s}"
+        "en"        "Lineup \"{1}\" renamed to \"{2}\"."
+    }
+    "Lineup Desc Set"
+    {
+        "#format"   "{1:s}"
+        "en"        "Description of \"{1}\" updated."
+    }
+    "Lineup Selected"
+    {
+        "en"        "Lineup selected for hints."
+    }
+    "Lineup Gone"
+    {
+        "en"        "This lineup no longer exists."
+    }
+    "Lineup Author"
+    {
+        "en"        "Author"
+    }
+    "Lineups Title"
+    {
+        "#format"   "{1:d}"
+        "en"        "Lineups on this map: {1}"
+    }
+    "Lineups Nearest"
+    {
+        "en"        "All, nearest first"
+    }
+    "Lineups Deselect"
+    {
+        "en"        "Deselect current lineup"
+    }
+    "Lineups Empty"
+    {
+        "en"        "No lineups here yet. Throw a grenade and type !save <name>."
+    }
+    "Lineups List Title"
+    {
+        "en"        "Choose a lineup"
+    }
+    "Lineup Menu Goto"
+    {
+        "en"        "Teleport and show hints"
+    }
+    "Lineup Menu Show"
+    {
+        "en"        "Replay the throw"
+    }
+    "Lineup Menu Select"
+    {
+        "en"        "Hints only (no teleport)"
+    }
+    "Lineup Menu Delete"
+    {
+        "en"        "Delete"
+    }
+    "Hint Throw"
+    {
+        "en"        "Throw"
+    }
+    "Hint Position"
+    {
+        "en"        "Position"
+    }
+    "Hint Aim"
+    {
+        "en"        "Aim"
+    }
+    "Hint Ready"
+    {
+        "#format"   "{1:s}"
+        "en"        ">>> READY: {1} <<<"
+    }
+    "Prediction Error"
+    {
+        "#format"   "{1:.0f}"
+        "en"        "Preview error at the landing point: {1} units."
+    }
+    "Prediction No Data"
+    {
+        "en"        "No data yet: throw a few grenades."
+    }
+    "Prediction Stats"
+    {
+        "#format"   "{1:d},{2:.1f},{3:.1f},{4:.1f}"
+        "en"        "Preview accuracy: {1} throws, average error {2}, max {3}, last {4} units."
+    }
+}

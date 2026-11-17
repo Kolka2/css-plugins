@@ -1,0 +1,283 @@
+"Phrases"
+{
+    "Mode Started"
+    {
+        "ru"        "Режим тренировки гранат запущен. Меню: !practice"
+    }
+    "Mode Stopped"
+    {
+        "ru"        "Режим тренировки гранат остановлен."
+    }
+    "Mode Inactive"
+    {
+        "ru"        "Режим тренировки гранат не запущен."
+    }
+    "Must Be Alive"
+    {
+        "ru"        "Для этого нужно быть живым."
+    }
+    "On"
+    {
+        "ru"        "вкл"
+    }
+    "Off"
+    {
+        "ru"        "выкл"
+    }
+    "Noclip On"
+    {
+        "ru"        "Noclip включён."
+    }
+    "Noclip Off"
+    {
+        "ru"        "Noclip выключен."
+    }
+    "No Last Throw"
+    {
+        "ru"        "Броска ещё не было: сначала брось гранату."
+    }
+    "Returned Back"
+    {
+        "ru"        "Возврат в позицию последнего броска (бросок: {1})."
+    }
+    "Replay Cooldown"
+    {
+        "ru"        "Слишком часто, подожди немного."
+    }
+    "Replay Drawn"
+    {
+        "ru"        "Повтор: показана сохранённая траектория."
+    }
+    "Replay Failed"
+    {
+        "ru"        "Не удалось повторить бросок: нет данных снаряда."
+    }
+    "Traces Cleared"
+    {
+        "ru"        "Твои траектории стёрты."
+    }
+    "Nade HE"
+    {
+        "ru"        "HE"
+    }
+    "Nade Flash"
+    {
+        "ru"        "Флешка"
+    }
+    "Nade Smoke"
+    {
+        "ru"        "Дым"
+    }
+    "Throw Stand"
+    {
+        "ru"        "стоя"
+    }
+    "Throw Crouch"
+    {
+        "ru"        "присед"
+    }
+    "Throw Jump"
+    {
+        "ru"        "прыжок + бросок"
+    }
+    "Throw Run"
+    {
+        "ru"        "с бега"
+    }
+    "Throw RunJump"
+    {
+        "ru"        "бег + прыжок + бросок"
+    }
+    "Menu Title"
+    {
+        "ru"        "Тренировка гранат"
+    }
+    "Menu Lineups"
+    {
+        "ru"        "Лайнапы"
+    }
+    "Menu Last"
+    {
+        "ru"        "Повторить последний бросок"
+    }
+    "Menu Back"
+    {
+        "ru"        "Вернуться в позицию броска"
+    }
+    "Menu Noclip"
+    {
+        "ru"        "Noclip"
+    }
+    "Menu Clear"
+    {
+        "ru"        "Стереть траектории"
+    }
+    "Menu Tracer"
+    {
+        "ru"        "Трассер бросков"
+    }
+    "Menu Preview"
+    {
+        "ru"        "Предпросмотр траектории"
+    }
+    "Menu Hints"
+    {
+        "ru"        "Подсказки лайнапа"
+    }
+    "Menu Noflash"
+    {
+        "ru"        "Не слепнуть от флешек"
+    }
+    "Menu PrevError"
+    {
+        "ru"        "Точность предпросмотра"
+    }
+    "Menu Help"
+    {
+        "ru"        "Команды"
+    }
+    "Help Line 1"
+    {
+        "ru"        "!noclip !back !last !clear !tracer !preview !preverror !hints !noflash"
+    }
+    "Help Line 2"
+    {
+        "ru"        "!save <имя> - сохранить последний бросок; !lineups; !goto <имя>; !show <имя>"
+    }
+    "Help Line 3"
+    {
+        "ru"        "Для выбранного лайнапа: !delete, !rename <новое имя>, !desc <текст>"
+    }
+    "Usage Save"
+    {
+        "ru"        "Использование: !save <имя>"
+    }
+    "Usage Rename"
+    {
+        "ru"        "Использование: !rename <новое имя> (переименует выбранный лайнап)"
+    }
+    "Wait Detonation"
+    {
+        "ru"        "Дождись детонации гранаты, потом сохраняй."
+    }
+    "No Edit Access"
+    {
+        "ru"        "У тебя нет прав менять базу лайнапов."
+    }
+    "No Lineup Selected"
+    {
+        "ru"        "Лайнап не выбран: используй !lineups или !goto <имя>."
+    }
+    "Lineup Not Found"
+    {
+        "ru"        "Лайнап \"{1}\" не найден."
+    }
+    "Lineup Ambiguous"
+    {
+        "ru"        "Под \"{1}\" подходит несколько лайнапов, уточни имя."
+    }
+    "Lineup Exists"
+    {
+        "ru"        "Лайнап \"{1}\" уже существует."
+    }
+    "Lineup Saved"
+    {
+        "ru"        "Лайнап \"{1}\" сохранён ({2}, {3})."
+    }
+    "Lineup Goto"
+    {
+        "ru"        "Лайнап \"{1}\": {2}, {3}."
+    }
+    "Lineup Show"
+    {
+        "ru"        "Повтор лайнапа \"{1}\"."
+    }
+    "Lineup Deleted"
+    {
+        "ru"        "Лайнап \"{1}\" удалён."
+    }
+    "Lineup Renamed"
+    {
+        "ru"        "Лайнап \"{1}\" переименован в \"{2}\"."
+    }
+    "Lineup Desc Set"
+    {
+        "ru"        "Описание лайнапа \"{1}\" обновлено."
+    }
+    "Lineup Selected"
+    {
+        "ru"        "Лайнап выбран для подсказок."
+    }
+    "Lineup Gone"
+    {
+        "ru"        "Этого лайнапа больше нет."
+    }
+    "Lineup Author"
+    {
+        "ru"        "Автор"
+    }
+    "Lineups Title"
+    {
+        "ru"        "Лайнапы на карте: {1}"
+    }
+    "Lineups Nearest"
+    {
+        "ru"        "Все, ближайшие первыми"
+    }
+    "Lineups Deselect"
+    {
+        "ru"        "Снять выбор лайнапа"
+    }
+    "Lineups Empty"
+    {
+        "ru"        "Лайнапов пока нет. Брось гранату и набери !save <имя>."
+    }
+    "Lineups List Title"
+    {
+        "ru"        "Выбери лайнап"
+    }
+    "Lineup Menu Goto"
+    {
+        "ru"        "Телепорт и подсказки"
+    }
+    "Lineup Menu Show"
+    {
+        "ru"        "Повторить бросок"
+    }
+    "Lineup Menu Select"
+    {
+        "ru"        "Только подсказки (без телепорта)"
+    }
+    "Lineup Menu Delete"
+    {
+        "ru"        "Удалить"
+    }
+    "Hint Throw"
+    {
+        "ru"        "Бросок"
+    }
+    "Hint Position"
+    {
+        "ru"        "Позиция"
+    }
+    "Hint Aim"
+    {
+        "ru"        "Прицел"
+    }
+    "Hint Ready"
+    {
+        "ru"        ">>> ГОТОВО: {1} <<<"
+    }
+    "Prediction Error"
+    {
+        "ru"        "Ошибка предпросмотра в точке приземления: {1} юнитов."
+    }
+    "Prediction No Data"
+    {
+        "ru"        "Данных пока нет: брось несколько гранат."
+    }
+    "Prediction Stats"
+    {
+        "ru"        "Точность предпросмотра: бросков {1}, средняя ошибка {2}, максимум {3}, последняя {4} юнитов."
+    }
+}
