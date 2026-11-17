@@ -170,6 +170,8 @@ ConVar g_cvInfinite;
 ConVar g_cvGiveOnSpawn;
 ConVar g_cvBlockDamage;
 ConVar g_cvBlockSelfNade;
+ConVar g_cvRespawnDelay;
+ConVar g_cvRespawnAtDeath;
 
 // replay
 ConVar g_cvReplayMode;
@@ -245,6 +247,9 @@ bool g_bNoFlash[MAXPLAYERS + 1];
 ThrowInfo g_LastThrow[MAXPLAYERS + 1];
 int g_PendingThrowRef[MAXPLAYERS + 1];
 float g_NextReplay[MAXPLAYERS + 1];
+bool g_bHasDeathPos[MAXPLAYERS + 1];        // respawn at the death point is pending
+float g_DeathPos[MAXPLAYERS + 1][3];
+float g_DeathAng[MAXPLAYERS + 1][3];
 
 // throws
 int g_ThrowSerial;
@@ -340,6 +345,8 @@ public void OnPluginStart() {
     g_cvGiveOnSpawn   = CreateConVar("sm_nadepractice_give_on_spawn", "1", "Give HE, flashbang and smoke on spawn", _, true, 0.0, true, 1.0);
     g_cvBlockDamage   = CreateConVar("sm_nadepractice_block_damage", "1", "Block all damage to players", _, true, 0.0, true, 1.0);
     g_cvBlockSelfNade = CreateConVar("sm_nadepractice_block_self_nade_damage", "1", "Block damage from your own grenades (useful with block_damage 0)", _, true, 0.0, true, 1.0);
+    g_cvRespawnDelay   = CreateConVar("sm_nadepractice_respawn_delay", "1.0", "Respawn dead players after this many seconds (0 = no respawn)", _, true, 0.0, true, 30.0);
+    g_cvRespawnAtDeath = CreateConVar("sm_nadepractice_respawn_at_death", "0", "After a respawn, put the player back where they died, with the same view angles", _, true, 0.0, true, 1.0);
 
     g_cvReplayMode       = CreateConVar("sm_nadepractice_replay_mode", "1", "Throw replay: 0 = draw the saved trajectory only, 1 = real projectile", _, true, 0.0, true, 1.0);
     g_cvReplayEngineFuse = CreateConVar("sm_nadepractice_replay_engine_fuse", "0", "HE/flash replay detonation: 0 = by the plugin (effect without damage or blindness), 1 = try to start the engine timer (experimental)", _, true, 0.0, true, 1.0);
@@ -507,6 +514,7 @@ void ResetClientState(int client) {
     g_LastThrow[client].pathCount = 0;
     g_PendingThrowRef[client] = 0;
     g_NextReplay[client] = 0.0;
+    g_bHasDeathPos[client] = false;
     g_TeTick[client] = 0;
     g_TeLeft[client] = 0;
     g_MenuFilter[client] = NADE_NONE;

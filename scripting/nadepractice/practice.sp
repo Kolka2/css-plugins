@@ -18,6 +18,11 @@ void Practice_Init() {
     AddCommandListener(Listener_Noclip, "sm_noclip");
 
     HookEvent("player_blind", Event_PlayerBlind, EventHookMode_Post);
+    HookEvent("player_death", Event_PlayerDeath, EventHookMode_Post);
+    HookEvent("player_team", Event_PlayerTeam, EventHookMode_Post);
+    // A player who joined a team mid-round picks a class and stays dead until the round ends,
+    // which never happens in this mode.
+    AddCommandListener(Listener_JoinClass, "joinclass");
 }
 
 // The mode stopped: give players back what the mode changed.
@@ -48,6 +53,100 @@ void Practice_Equip(int client) {
             GivePlayerItem(client, g_NadeWeapon[nade]);
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Respawn. The round never ends (mp_ignore_round_win_conditions 1), so without
+// this a dead player would only come back by changing teams.
+// ---------------------------------------------------------------------------
+
+public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast) {
+    if (!g_bActive) {
+        return;
+    }
+    int userid = event.GetInt("userid");
+    int client = GetClientOfUserId(userid);
+    if (!IsHuman(client)) {
+        return;
+    }
+    char weapon[32];
+    event.GetString("weapon", weapon, sizeof(weapon));
+    int attacker = GetClientOfUserId(event.GetInt("attacker"));
+
+    GetClientAbsOrigin(client, g_DeathPos[client]);
+    GetClientEyeAngles(client, g_DeathAng[client]);
+    g_bHasDeathPos[client] = g_cvRespawnAtDeath.BoolValue;
+
+    float delay = g_cvRespawnDelay.FloatValue;
+    LogDebug("death: %N, attacker %d, weapon \"%s\", at (%.1f %.1f %.1f), respawn in %.1f s%s", client, attacker, weapon,
+        g_DeathPos[client][0], g_DeathPos[client][1], g_DeathPos[client][2], delay,
+        (delay > 0.0) ? "" : " (disabled)");
+    if (delay > 0.0) {
+        CreateTimer(delay, Timer_Respawn, userid, TIMER_FLAG_NO_MAPCHANGE);
+    }
+}
+
+public Action Timer_Respawn(Handle timer, int userid) {
+    int client = GetClientOfUserId(userid);
+    if (client != 0) {
+        Practice_TryRespawn(client, "death");
+    }
+    return Plugin_Stop;
+}
+
+public void Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast) {
+    if (!g_bActive || event.GetBool("disconnect")) {
+        return;
+    }
+    int userid = event.GetInt("userid");
+    int client = GetClientOfUserId(userid);
+    if (client == 0) {
+        return;
+    }
+    // A team change cancels a pending return to the death point.
+    g_bHasDeathPos[client] = false;
+    if (event.GetInt("team") >= CS_TEAM_T) {
+        // The event fires before the team actually changes: check in the next frame.
+        RequestFrame(Frame_RespawnAfterTeam, userid);
+    }
+}
+
+public Action Listener_JoinClass(int client, const char[] command, int argc) {
+    if (g_bActive && IsHuman(client)) {
+        // The class is applied after this command: check in the next frame.
+        RequestFrame(Frame_RespawnAfterTeam, GetClientUserId(client));
+    }
+    return Plugin_Continue;
+}
+
+public void Frame_RespawnAfterTeam(int userid) {
+    int client = GetClientOfUserId(userid);
+    if (client != 0) {
+        Practice_TryRespawn(client, "joined team");
+    }
+}
+
+// Respawns a dead human in T/CT. The usual equipment follows from player_spawn.
+// CSS-VERIFY: CS_RespawnPlayer right after player_team (before the class is picked) gives a
+// normal player model; if not, the respawn after joinclass is the one that matters.
+void Practice_TryRespawn(int client, const char[] reason) {
+    if (!g_bActive || g_cvRespawnDelay.FloatValue <= 0.0 || !IsHuman(client)
+        || GetClientTeam(client) < CS_TEAM_T || IsPlayerAlive(client)) {
+        return;
+    }
+    CS_RespawnPlayer(client);
+    if (!IsPlayerAlive(client)) {
+        LogDebug("respawn: %N (%s) failed, still dead", client, reason);
+        return;
+    }
+    if (g_bHasDeathPos[client]) {
+        float angles[3];
+        angles = g_DeathAng[client];
+        angles[2] = 0.0;
+        TeleportEntity(client, g_DeathPos[client], angles, view_as<float>({ 0.0, 0.0, 0.0 }));
+    }
+    LogDebug("respawn: %N (%s)%s", client, reason, g_bHasDeathPos[client] ? ", at the death point" : "");
+    g_bHasDeathPos[client] = false;
 }
 
 // ---------------------------------------------------------------------------
