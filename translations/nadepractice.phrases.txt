@@ -435,14 +435,6 @@
     {
         "en"        "run + jumpthrow"
     }
-    "Hint Alias"
-    {
-        "en"        "Bind: alias +jt \"+jump;-attack\"; alias -jt -jump"
-    }
-    "Hint Alias Nadethrow"
-    {
-        "en"        "Bind: alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump"
-    }
     "Strength Full"
     {
         "en"        "LMB"
@@ -696,5 +688,13 @@
     "Hint Mode Hud"
     {
         "en"        "colored, under the crosshair"
+    }
+    "Jumpthrow Bind"
+    {
+        "en"        "Jumpthrow bind for console: alias +jt \"+jump;-attack\"; alias -jt -jump; bind <key> +jt"
+    }
+    "Jumpthrow Bind Nadethrow"
+    {
+        "en"        "Jumpthrow bind for console (works with right click too): alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump; bind <key> +jt"
     }
 }

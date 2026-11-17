@@ -130,7 +130,7 @@ bool IsRunThrow(int type) {
     return type == THROW_RUN || type == THROW_RUNJUMP || type == THROW_RUNJUMPTHROW;
 }
 
-bool IsJumpthrowType(int type) {
+stock bool IsJumpthrowType(int type) {
     return type == THROW_JUMPTHROW || type == THROW_RUNJUMPTHROW;
 }
 

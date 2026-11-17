@@ -95,7 +95,7 @@
 
 **Рамка прицела.** Квадрат, угловой размер которого равен допуску (`2 × sm_nadepractice_hint_angle_tolerance`): прицел внутри рамки — прицел в допуске, рамка зеленеет. «ГОТОВО» в тексте — когда позиция, прицел и кнопки совпадают.
 
-**Jumpthrow.** Отдельный тип: атака отпущена в том же тике, что нажат прыжок (или в пределах `sm_nadepractice_jumpthrow_ticks`), — так работает бинд `alias +jt "+jump;-attack"; alias -jt -jump`. С `nadethrow` бинд должен отпускать и ПКМ: `"+jump;-attack;-attack2"` (см. `docs/nadethrow/README.md`). В первой версии jumpthrow считался обычным «прыжком».
+**Jumpthrow.** Отдельный тип: атака отпущена в том же тике, что нажат прыжок (или в пределах `sm_nadepractice_jumpthrow_ticks`), — так работает бинд `alias +jt "+jump;-attack"; alias -jt -jump`. С `nadethrow` бинд должен отпускать и ПКМ: `"+jump;-attack;-attack2"` (см. `docs/nadethrow/README.md`). Готовый бинд плагин пишет в чат один раз за подключение, при первом появлении в режиме. В первой версии jumpthrow считался обычным «прыжком».
 
 **`nadethrow`.** Если загружен, у лайнапа хранится сила броска (ЛКМ / ЛКМ+ПКМ / ПКМ), в подсказке — строка «Кнопки» и текущая сила, пока чека выдернута; «готово» только при совпадении. Предпросмотр учитывает текущую силу. Без `nadethrow` всё работает как при ЛКМ; у лайнапа с ПКМ — предупреждение.
 
@@ -350,7 +350,7 @@ Lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints 
 
 **Aim frame.** A square whose angular size equals the tolerance (`2 × sm_nadepractice_hint_angle_tolerance`): crosshair inside the frame means aim within tolerance, and the frame turns green. "READY" in the text means position, aim and buttons all match.
 
-**Jumpthrow.** A separate type: the attack is released in the same tick as the jump press (or within `sm_nadepractice_jumpthrow_ticks`) — what the bind `alias +jt "+jump;-attack"; alias -jt -jump` does. With `nadethrow` the bind must release the right button too: `"+jump;-attack;-attack2"` (see `docs/nadethrow/README.md`). In the first version a jumpthrow counted as a plain "jump" throw.
+**Jumpthrow.** A separate type: the attack is released in the same tick as the jump press (or within `sm_nadepractice_jumpthrow_ticks`) — what the bind `alias +jt "+jump;-attack"; alias -jt -jump` does. With `nadethrow` the bind must release the right button too: `"+jump;-attack;-attack2"` (see `docs/nadethrow/README.md`). The plugin prints a ready bind in chat once per connection, on the first spawn in the mode. In the first version a jumpthrow counted as a plain "jump" throw.
 
 **`nadethrow`.** When it is loaded, a lineup stores the throw strength (LMB / LMB+RMB / RMB); the hint shows a "Buttons" line and the current strength while the pin is pulled; "ready" only when they match. The preview follows the current strength. Without `nadethrow` everything works as with left click; a right click lineup shows a warning.
 

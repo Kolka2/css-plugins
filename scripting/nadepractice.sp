@@ -321,6 +321,7 @@ char g_DebugLogPath[PLATFORM_MAX_PATH];
 bool g_bActive;
 bool g_bLateLoad;
 bool g_bHasNadethrow;
+int g_JumpthrowToldUserId[MAXPLAYERS + 1];   // userid that has seen the jumpthrow bind message
 
 // nadethrow notification for the last projectile of each player
 int g_NtRef[MAXPLAYERS + 1];
@@ -876,8 +877,24 @@ public Action Timer_Equip(Handle timer, int userid) {
     int client = GetClientOfUserId(userid);
     if (client != 0 && g_bActive && IsHuman(client)) {
         Practice_Equip(client);
+        TellJumpthrowBind(client, userid);
     }
     return Plugin_Stop;
+}
+
+// The jumpthrow bind, once per connection, on the first spawn in the mode. A userid
+// survives map changes, so this is once per connection, not once per map.
+void TellJumpthrowBind(int client, int userid) {
+    if (g_JumpthrowToldUserId[client] == userid || GetClientTeam(client) < CS_TEAM_T || !IsPlayerAlive(client)) {
+        return;
+    }
+    g_JumpthrowToldUserId[client] = userid;
+    // With nadethrow the alias must release the right button too.
+    char phrase[32];
+    strcopy(phrase, sizeof(phrase), IsNadethrowEnabled() ? "Jumpthrow Bind Nadethrow" : "Jumpthrow Bind");
+    if (PhraseExists(phrase)) {
+        NP_Print(client, "%t", phrase);
+    }
 }
 
 // ---------------------------------------------------------------------------

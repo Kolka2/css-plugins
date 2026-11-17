@@ -416,14 +416,6 @@
     {
         "ru"        "бег + jumpthrow"
     }
-    "Hint Alias"
-    {
-        "ru"        "Бинд: alias +jt \"+jump;-attack\"; alias -jt -jump"
-    }
-    "Hint Alias Nadethrow"
-    {
-        "ru"        "Бинд: alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump"
-    }
     "Strength Full"
     {
         "ru"        "ЛКМ"
@@ -659,5 +651,13 @@
     "Hint Mode Hud"
     {
         "ru"        "цветной, под прицелом"
+    }
+    "Jumpthrow Bind"
+    {
+        "ru"        "Бинд для jumpthrow (в консоль): alias +jt \"+jump;-attack\"; alias -jt -jump; bind <клавиша> +jt"
+    }
+    "Jumpthrow Bind Nadethrow"
+    {
+        "ru"        "Бинд для jumpthrow (в консоль, работает и с ПКМ): alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump; bind <клавиша> +jt"
     }
 }
