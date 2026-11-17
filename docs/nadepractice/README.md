@@ -85,7 +85,7 @@
 
 ## Меню `!practice`
 
-Лайнапы (с кнопкой «Назад»), повтор, назад, noclip, очистка, переключатели трассера, предпросмотра и подсказок; **метка прицела** (рамка допуска / крестик / спрайт); **проверка позиции** (авто / старт / точка броска); **правка** старта, точки броска и прицела; **замеры** (точка проверки ослепления, для флешек или флешек и HE, возврат после проверки, отчёт урона HE, отчёт времени полёта, `!noflash`); **спавны**; **длительность дыма** (по умолчанию игры / 5 / 10 / 30 / 60 с); `!noflash`; «вернуть руки»; точность предпросмотра; список команд.
+Лайнапы (с кнопкой «Назад»), повтор, назад, noclip, очистка, переключатели трассера, предпросмотра и подсказок; **текст подсказки** (панель справа / по центру экрана / цветной под прицелом); **метка прицела** (рамка допуска / крестик / спрайт); **проверка позиции** (авто / старт / точка броска); **правка** старта, точки броска и прицела; **замеры** (точка проверки ослепления, для флешек или флешек и HE, возврат после проверки, отчёт урона HE, отчёт времени полёта, `!noflash`); **спавны**; **длительность дыма** (по умолчанию игры / 5 / 10 / 30 / 60 с); `!noflash`; «вернуть руки»; точность предпросмотра; список команд.
 
 ## Как пользоваться
 
@@ -151,7 +151,7 @@
 | `sm_nadepractice_hint_interval` | 0.25 | период обновления подсказки, с |
 | `sm_nadepractice_hint_pos_radius` | 6.0 | допуск позиции, юнитов |
 | `sm_nadepractice_hint_angle_tolerance` | 0.5 | допуск прицела, градусов |
-| `sm_nadepractice_hint_mode` | 0 | вывод подсказки: 0 — KeyHintText (панель справа), 1 — HintText, 2 — HUD-текст |
+| `sm_nadepractice_hint_mode` | 0 | вывод подсказки по умолчанию: 0 — KeyHintText (панель справа), 1 — HintText (по центру), 2 — HUD-текст (цветной); у игрока — в меню |
 | `sm_nadepractice_hint_unicode` | 1 | стрелки: 1 — юникод, 0 — ASCII |
 | `sm_nadepractice_hint_look_distance` | 300.0 | расстояние от глаз до метки прицела |
 | `sm_nadepractice_hint_target` | 0 | цель проверки позиции по умолчанию: 0 — авто, 1 — старт, 2 — точка броска |
@@ -244,6 +244,7 @@
 - **Стёртые траектории** исчезают не мгновенно: отправленные лучи доживают до конца цикла перерисовки (около 2 с).
 - **Оценка урона HE «в броне»** приблизительная (`sm_nadepractice_he_armor_ratio`), сверяется на сервере.
 - Команды `!save`, `!goto`, `!show`, `!delete`, `!back`, `!last`, `!clear`, `!spawn`, `!timer`, `!flash` могут совпасть с командами сторонних плагинов.
+- **Подложка панели справа** (KeyHintText) бывает уже длинных строк: текст выходит за тёмный фон, но выводится целиком. Ширину фона считает клиент игры. Если мешает — «Текст подсказки» в меню.
 - Цвет «готово» в тексте есть только в `hint_mode 2`; в остальных режимах «готово» показывают рамка прицела и строка «ГОТОВО». Зелёное кольцо под ногами от первого лица не видно — это ориентир издалека.
 
 ## Сборка
@@ -339,7 +340,7 @@ Admin commands: `sm_nadepractice_start`, `sm_nadepractice_stop` (changemap flag)
 
 ## The `!practice` menu
 
-Lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints toggles; **aim marker** (tolerance frame / cross / sprite); **position check** (auto / start / release point); **edit** start, release point and aim; **measurements** (flash check point, used by flashbangs or flashbangs and HE, return after the check, HE damage report, air time report, `!noflash`); **spawns**; **smoke duration** (game default / 5 / 10 / 30 / 60 s); `!noflash`; "fix hands"; preview accuracy; command list.
+Lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints toggles; **hint text** (panel on the right / centre of the screen / colored under the crosshair); **aim marker** (tolerance frame / cross / sprite); **position check** (auto / start / release point); **edit** start, release point and aim; **measurements** (flash check point, used by flashbangs or flashbangs and HE, return after the check, HE damage report, air time report, `!noflash`); **spawns**; **smoke duration** (game default / 5 / 10 / 30 / 60 s); `!noflash`; "fix hands"; preview accuracy; command list.
 
 ## How to use it
 
@@ -405,7 +406,7 @@ Lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints 
 | `sm_nadepractice_hint_interval` | 0.25 | hint update period, s |
 | `sm_nadepractice_hint_pos_radius` | 6.0 | position tolerance, units |
 | `sm_nadepractice_hint_angle_tolerance` | 0.5 | aim tolerance, degrees |
-| `sm_nadepractice_hint_mode` | 0 | hint output: 0 = KeyHintText (right panel), 1 = HintText, 2 = HUD text |
+| `sm_nadepractice_hint_mode` | 0 | default hint output: 0 = KeyHintText (right panel), 1 = HintText (centre), 2 = HUD text (colored); per player in the menu |
 | `sm_nadepractice_hint_unicode` | 1 | arrows: 1 = unicode, 0 = ASCII |
 | `sm_nadepractice_hint_look_distance` | 300.0 | distance from the eyes to the aim marker |
 | `sm_nadepractice_hint_target` | 0 | default position check target: 0 = auto, 1 = start, 2 = release point |
@@ -498,6 +499,7 @@ The flash check (`!flash`), spawns (`!spawn`, `!bestspawn`, `!worstspawn`) and t
 - **Cleared trajectories** do not vanish instantly: beams already sent live until the end of the redraw cycle (about 2 s).
 - **The armored HE estimate** is approximate (`sm_nadepractice_he_armor_ratio`), to be checked on the server.
 - Commands `!save`, `!goto`, `!show`, `!delete`, `!back`, `!last`, `!clear`, `!spawn`, `!timer`, `!flash` may clash with third-party plugins.
+- **The right panel background** (KeyHintText) can be narrower than long lines: the text goes past the dark background but is shown in full. The client computes the background width. If it bothers you, change "Hint text" in the menu.
 - A colored "ready" text exists only in `hint_mode 2`; in the other modes "ready" is shown by the aim frame and the "READY" line. The green ring under your feet cannot be seen in first person — it is a landmark from afar.
 
 ## Building

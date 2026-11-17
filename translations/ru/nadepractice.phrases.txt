@@ -644,4 +644,20 @@
     {
         "ru"        "!flash [off] - точка проверки ослепления; !spawn [t|ct] [N], !bestspawn, !worstspawn; !timer, !timer2"
     }
+    "Menu Hint Mode"
+    {
+        "ru"        "Текст подсказки"
+    }
+    "Hint Mode KeyHint"
+    {
+        "ru"        "панель справа"
+    }
+    "Hint Mode Center"
+    {
+        "ru"        "по центру экрана"
+    }
+    "Hint Mode Hud"
+    {
+        "ru"        "цветной, под прицелом"
+    }
 }

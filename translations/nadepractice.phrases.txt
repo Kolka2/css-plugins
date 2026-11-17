@@ -681,4 +681,20 @@
     {
         "en"        "!flash [off] - flash check point; !spawn [t|ct] [N], !bestspawn, !worstspawn; !timer, !timer2"
     }
+    "Menu Hint Mode"
+    {
+        "en"        "Hint text"
+    }
+    "Hint Mode KeyHint"
+    {
+        "en"        "panel on the right"
+    }
+    "Hint Mode Center"
+    {
+        "en"        "centre of the screen"
+    }
+    "Hint Mode Hud"
+    {
+        "en"        "colored, under the crosshair"
+    }
 }

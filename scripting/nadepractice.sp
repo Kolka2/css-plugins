@@ -108,6 +108,13 @@ char g_StrengthPhrase[3][] = { "Strength Full", "Strength Medium", "Strength Lig
 #define TARGET_COUNT   3
 char g_TargetPhrase[TARGET_COUNT][] = { "Target Auto", "Target Start", "Target Release" };
 
+// Where the hint text is shown.
+#define HINTMODE_KEYHINT 0  // KeyHintText: panel on the right
+#define HINTMODE_CENTER  1  // HintText: centre of the screen
+#define HINTMODE_HUD     2  // HudMsg: colored text under the crosshair
+#define HINTMODE_COUNT   3
+char g_HintModePhrase[HINTMODE_COUNT][] = { "Hint Mode KeyHint", "Hint Mode Center", "Hint Mode Hud" };
+
 // What the edit commands change.
 #define EDIT_START    0
 #define EDIT_RELEASE  1
@@ -411,6 +418,7 @@ int g_HintTarget[MAXPLAYERS + 1];           // TARGET_* chosen by the player
 float g_HintMarker[MAXPLAYERS + 1][3];      // marker of the current target
 float g_HintMarkerDist[MAXPLAYERS + 1];     // distance from the eyes to the aim marker
 int g_HintMarkerStyle[MAXPLAYERS + 1];      // MARKER_* chosen by the player
+int g_HintMode[MAXPLAYERS + 1];             // HINTMODE_* chosen by the player
 
 // preview and prediction check
 ArrayList g_SimPath;
@@ -510,7 +518,7 @@ public void OnPluginStart() {
     g_cvHintInterval  = CreateConVar("sm_nadepractice_hint_interval", "0.25", "Hint update period, seconds", _, true, 0.05, true, 2.0);
     g_cvHintPosRadius = CreateConVar("sm_nadepractice_hint_pos_radius", "6.0", "Position tolerance, horizontal units", _, true, 1.0, true, 64.0);
     g_cvHintAngleTol  = CreateConVar("sm_nadepractice_hint_angle_tolerance", "0.5", "Aim tolerance, degrees", _, true, 0.05, true, 10.0);
-    g_cvHintMode      = CreateConVar("sm_nadepractice_hint_mode", "0", "Hint output: 0 = KeyHintText (right panel), 1 = HintText, 2 = HUD text (colored)", _, true, 0.0, true, 2.0);
+    g_cvHintMode      = CreateConVar("sm_nadepractice_hint_mode", "0", "Default hint output: 0 = KeyHintText (right panel), 1 = HintText (centre), 2 = HUD text (colored); each player can change it in the menu", _, true, 0.0, true, 2.0);
     g_cvHintUnicode   = CreateConVar("sm_nadepractice_hint_unicode", "1", "Arrows in hints: 1 = unicode, 0 = ASCII", _, true, 0.0, true, 1.0);
     g_cvHintLookDist  = CreateConVar("sm_nadepractice_hint_look_distance", "300.0", "Distance from the eyes of the aim marker (closer if a wall is in the way)", _, true, 32.0, true, 4000.0);
     g_cvHintTarget    = CreateConVar("sm_nadepractice_hint_target", "0", "Default target of the position check: 0 = auto (the start if it is away from the release point), 1 = start, 2 = release point", _, true, 0.0, true, 2.0);

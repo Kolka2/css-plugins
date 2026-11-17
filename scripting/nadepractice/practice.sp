@@ -615,6 +615,7 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_AddToggle(menu, client, "tracer", "Menu Tracer", g_bTracer[client]);
     Menu_AddToggle(menu, client, "preview", "Menu Preview", g_bPreview[client]);
     Menu_AddToggle(menu, client, "hints", "Menu Hints", g_bHints[client]);
+    Menu_AddChoice(menu, client, "hintmode", "Menu Hint Mode", g_HintModePhrase[g_HintMode[client]]);
     Menu_AddChoice(menu, client, "marker", "Menu Marker", g_MarkerPhrase[g_HintMarkerStyle[client]]);
     Menu_AddChoice(menu, client, "target", "Menu Target", g_TargetPhrase[g_HintTarget[client]]);
     Menu_AddPhrase(menu, client, "edit", "Menu Edit");
@@ -665,6 +666,8 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
         g_bPreview[client] = !g_bPreview[client];
     } else if (StrEqual(info, "hints")) {
         Hints_Toggle(client);
+    } else if (StrEqual(info, "hintmode")) {
+        Hints_CycleMode(client);
     } else if (StrEqual(info, "marker")) {
         Hints_CycleMarker(client);
     } else if (StrEqual(info, "target")) {

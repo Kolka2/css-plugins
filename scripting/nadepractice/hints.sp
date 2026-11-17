@@ -34,6 +34,7 @@ void Hints_ResetClient(int client) {
     g_bHintHasStart[client] = false;
     g_HintMarkerStyle[client] = g_cvHintMarker.IntValue;
     g_HintTarget[client] = g_cvHintTarget.IntValue;
+    g_HintMode[client] = g_cvHintMode.IntValue;
 }
 
 public bool Hints_TraceWorld(int entity, int contentsMask) {
@@ -187,11 +188,11 @@ void Hints_SendKeyHint(int client, const char[] text) {
 
 // ready: aim and position are within tolerance (in HUD mode the text turns green).
 void Hints_ShowText(int client, const char[] text, bool ready) {
-    switch (g_cvHintMode.IntValue) {
-        case 1: {
+    switch (g_HintMode[client]) {
+        case HINTMODE_CENTER: {
             PrintHintText(client, "%s", text);
         }
-        case 2: {
+        case HINTMODE_HUD: {
             // Confirmed on the server: HudMsg (ShowSyncHudText) is displayed and turns green.
             float hold = g_cvHintInterval.FloatValue + 0.2;
             if (ready) {
@@ -209,11 +210,24 @@ void Hints_ShowText(int client, const char[] text, bool ready) {
     g_bHintShown[client] = true;
 }
 
+// Removes the hint text from the screen. HintText fades out by itself.
 void Hints_ClearText(int client) {
-    if (g_bHintShown[client] && IsHuman(client) && g_cvHintMode.IntValue == 0) {
-        Hints_SendKeyHint(client, "");
+    if (g_bHintShown[client] && IsHuman(client)) {
+        if (g_HintMode[client] == HINTMODE_KEYHINT) {
+            Hints_SendKeyHint(client, "");
+        } else if (g_HintMode[client] == HINTMODE_HUD) {
+            ClearSyncHud(client, g_HudSync);
+        }
     }
     g_bHintShown[client] = false;
+}
+
+// Next hint output of the player (menu): right panel -> centre -> HUD text.
+void Hints_CycleMode(int client) {
+    Hints_ClearText(client);
+    g_HintMode[client] = (g_HintMode[client] + 1) % HINTMODE_COUNT;
+    g_NextHint[client] = 0.0;   // show in the new place at once
+    LogDebug("hints: %N output %d", client, g_HintMode[client]);
 }
 
 // ---------------------------------------------------------------------------
