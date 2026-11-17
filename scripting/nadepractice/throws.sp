@@ -1,10 +1,10 @@
 /*
- * throws.sp — обнаружение бросков: снаряд -> владелец, снимок состояния игрока
- * в момент броска, начальные позиция и скорость снаряда.
+ * throws.sp - throw detection: projectile -> owner, snapshot of the player state
+ * at the moment of the throw, initial projectile position and velocity.
  *
- * Снаряд создаётся внутри обработки команды игрока, поэтому в SpawnPost позиция,
- * углы, скорость и кнопки игрока — те самые, с которыми он бросил. Скорость
- * снаряду игра выставляет уже после Spawn, поэтому её читаем на следующем кадре.
+ * The projectile is created while the player's command is processed, so at SpawnPost
+ * the player's position, angles, velocity and buttons are exactly those of the throw.
+ * The game sets the projectile velocity after Spawn, so it is read in the next frame.
  */
 
 void Throws_OnEntityCreated(int entity, const char[] classname) {
@@ -16,7 +16,7 @@ void Throws_OnEntityCreated(int entity, const char[] classname) {
     }
     g_bProjectileEnt[entity] = true;
 
-    // Снаряды повтора создаёт сам плагин и сам же их обрабатывает.
+    // Replay projectiles are created and handled by the plugin itself.
     if (!g_bActive || g_bReplaySpawning) {
         return;
     }
@@ -43,8 +43,8 @@ public void Throws_OnSpawnPost(int entity) {
 
     int ref = EntIndexToEntRef(entity);
 
-    // CSS-VERIFY: в SpawnPost у снаряда уже выставлен m_hOwnerEntity (бросивший игрок).
-    // Если нет — снимок будет сделан кадром позже по m_hThrower (в лог пишется late=1).
+    // CSS-VERIFY: at SpawnPost the projectile already has m_hOwnerEntity (the thrower).
+    // If not, the snapshot is taken a frame later through m_hThrower (late=1 in the log).
     int owner = GetEntPropEnt(entity, Prop_Data, "m_hOwnerEntity");
     if (IsHuman(owner)) {
         Throws_Snapshot(owner, nade);
@@ -54,7 +54,7 @@ public void Throws_OnSpawnPost(int entity) {
     RequestFrame(Throws_Frame_Init, ref);
 }
 
-// Запоминает состояние игрока как «последний бросок».
+// Stores the player state as the "last throw".
 void Throws_Snapshot(int client, int nade) {
     float origin[3], eye[3], angles[3], velocity[3];
     GetClientAbsOrigin(client, origin);
@@ -101,7 +101,7 @@ public void Throws_Frame_Init(int ref) {
         return;
     }
 
-    // CSS-VERIFY: у снарядов CS:S есть сетевое свойство m_hThrower и оно указывает на бросившего.
+    // CSS-VERIFY: CS:S projectiles have the m_hThrower netprop and it points to the thrower.
     int owner = -1;
     if (HasEntProp(entity, Prop_Send, "m_hThrower")) {
         owner = GetEntPropEnt(entity, Prop_Send, "m_hThrower");
@@ -112,7 +112,7 @@ public void Throws_Frame_Init(int ref) {
         owner = GetEntPropEnt(entity, Prop_Data, "m_hOwnerEntity");
     }
     if (!IsHuman(owner)) {
-        return;     // бот или снаряд без владельца — не наш случай
+        return;     // a bot or a projectile without an owner: not ours
     }
 
     bool late = (g_PendingThrowRef[owner] != ref);

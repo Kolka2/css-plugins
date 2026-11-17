@@ -1,10 +1,10 @@
 /*
- * util.sp — общее вспомогательное: лог, временные квары, проверки клиентов,
- * сообщения, отрисовка временными сущностями с бюджетом на кадр.
+ * util.sp - shared helpers: logging, temporary cvars, client checks,
+ * chat messages, temp entity drawing with a per-frame budget.
  */
 
 // ---------------------------------------------------------------------------
-// Лог и квары
+// Logging and cvars
 // ---------------------------------------------------------------------------
 
 void LogDebug(const char[] format, any ...) {
@@ -16,7 +16,7 @@ void LogDebug(const char[] format, any ...) {
     LogToFileEx(g_DebugLogPath, "%s", buffer);
 }
 
-// Меняет квар, запомнив исходное значение (только при первом изменении).
+// Changes a cvar and remembers its original value (on the first change only).
 void SetCvarTemporarily(const char[] name, const char[] value) {
     ConVar cvar = FindConVar(name);
     if (cvar == null) {
@@ -33,7 +33,7 @@ void SetCvarTemporarily(const char[] name, const char[] value) {
     LogDebug("cvar %s: \"%s\" -> \"%s\"", name, original, value);
 }
 
-// Возвращает все квары, изменённые через SetCvarTemporarily.
+// Restores every cvar changed through SetCvarTemporarily.
 void RestoreCvars() {
     StringMapSnapshot snapshot = g_SavedCvars.Snapshot();
     char name[128], value[256];
@@ -50,7 +50,7 @@ void RestoreCvars() {
     g_SavedCvars.Clear();
 }
 
-// Одна запись в лог об отсутствующем свойстве движка, без падения.
+// One log entry about a missing engine property, without failing.
 void LogMissingProp(const char[] what) {
     if (!g_bLoggedMissingProp) {
         g_bLoggedMissingProp = true;
@@ -60,21 +60,21 @@ void LogMissingProp(const char[] what) {
 }
 
 // ---------------------------------------------------------------------------
-// Клиенты
+// Clients
 // ---------------------------------------------------------------------------
 
-// «Человек»: чат, меню, тренировка. Боты и SourceTV — нет.
+// "Human": chat, menus, practice. Not bots or SourceTV.
 bool IsHuman(int client) {
     return client > 0 && client <= MaxClients && IsClientInGame(client) && !IsFakeClient(client);
 }
 
-// «Участник»: человек или бот в игровой команде. В этом режиме боты не участвуют
-// (bot_quota 0), функция оставлена по правилу ARCHITECTURE.md (раздел 7, «Боты»).
+// "Participant": a human or a bot in a playing team. Bots do not take part in this
+// mode (bot_quota 0); the function is kept per ARCHITECTURE.md (section 7, "Bots").
 stock bool IsParticipant(int client) {
     return client > 0 && client <= MaxClients && IsClientInGame(client) && GetClientTeam(client) >= CS_TEAM_T;
 }
 
-// Человек, который сейчас может тренироваться: режим активен, игрок жив.
+// A human who can practise right now: the mode is active and the player is alive.
 bool CanPractice(int client, bool tell = true) {
     if (!IsHuman(client)) {
         return false;
@@ -104,7 +104,7 @@ void NP_Print(int client, const char[] format, any ...) {
     PrintToChat(client, "\x04[NadePractice]\x01 %s", buffer);
 }
 
-// Переведённые названия типа гранаты и типа броска для подстановки в другие фразы.
+// Translated grenade and throw type names to be inserted into other phrases.
 void NadeName(int client, int nade, char[] buffer, int maxlen) {
     FormatEx(buffer, maxlen, "%T", g_NadePhrase[nade], client);
 }
@@ -114,7 +114,7 @@ void ThrowName(int client, int type, char[] buffer, int maxlen) {
 }
 
 // ---------------------------------------------------------------------------
-// Гранаты
+// Grenades
 // ---------------------------------------------------------------------------
 
 int NadeFromWeaponClass(const char[] classname) {
@@ -144,7 +144,7 @@ int NadeFromKey(const char[] key) {
     return NADE_NONE;
 }
 
-// Граната, которую игрок держит в руках, или NADE_NONE.
+// The grenade the player holds, or NADE_NONE.
 stock int GetActiveNade(int client) {
     int weapon = GetEntPropEnt(client, Prop_Send, "m_hActiveWeapon");
     if (weapon <= MaxClients || !IsValidEntity(weapon)) {
@@ -155,7 +155,7 @@ stock int GetActiveNade(int client) {
     return NadeFromWeaponClass(classname);
 }
 
-// Есть ли у игрока оружие данного класса. Возвращает индекс сущности или -1.
+// Whether the player has a weapon of this class. Returns its entity index or -1.
 int FindWeaponByClass(int client, const char[] classname) {
     int size = GetEntPropArraySize(client, Prop_Send, "m_hMyWeapons");
     char buffer[32];
@@ -173,7 +173,7 @@ int FindWeaponByClass(int client, const char[] classname) {
 }
 
 // ---------------------------------------------------------------------------
-// Векторы и углы
+// Vectors and angles
 // ---------------------------------------------------------------------------
 
 void CopyVector(const float src[3], float dst[3]) {
@@ -182,7 +182,7 @@ void CopyVector(const float src[3], float dst[3]) {
     dst[2] = src[2];
 }
 
-// Приводит разницу углов к диапазону [-180, 180].
+// Brings an angle difference into [-180, 180].
 stock float NormalizeAngle(float angle) {
     while (angle > 180.0) {
         angle -= 360.0;
@@ -197,7 +197,7 @@ void GetEntityOrigin(int entity, float origin[3]) {
     GetEntPropVector(entity, Prop_Send, "m_vecOrigin", origin);
 }
 
-// Скорость сущности. false, если у движка нет нужного свойства.
+// Entity velocity. false if the engine has no such property.
 bool GetEntityVelocity(int entity, float velocity[3]) {
     if (!HasEntProp(entity, Prop_Data, "m_vecAbsVelocity")) {
         LogMissingProp("m_vecAbsVelocity");
@@ -211,8 +211,8 @@ bool GetEntityVelocity(int entity, float velocity[3]) {
 }
 
 // ---------------------------------------------------------------------------
-// Отрисовка. Всё отправляется одному игроку и проходит через бюджет на кадр:
-// движок отбрасывает временные сущности сверх лимита (sv_multiplayer_maxtempentities, 32).
+// Drawing. Everything is sent to one player and goes through the per-frame budget:
+// the engine drops temp entities above its limit (sv_multiplayer_maxtempentities, 32).
 // ---------------------------------------------------------------------------
 
 bool TE_Take(int client) {
@@ -237,7 +237,7 @@ stock bool Draw_Beam(int client, const float start[3], const float end[3], float
     return true;
 }
 
-// Горизонтальное кольцо. diameter — как его понимает движок (CSS-VERIFY: радиус или диаметр).
+// Horizontal ring. diameter is passed as the engine takes it (CSS-VERIFY: radius or diameter).
 stock bool Draw_Ring(int client, const float center[3], float diameter, float life, float width, const int color[4]) {
     if (!TE_Take(client)) {
         return false;

@@ -1,26 +1,26 @@
 /*
- * practice.sp — основа тренировки: выдача и бесконечные гранаты, урон,
- * команды игрока (!noclip, !back, !last, !noflash) и главное меню.
+ * practice.sp - practice basics: equipment and infinite grenades, damage,
+ * player commands (!noclip, !back, !last, !noflash) and the main menu.
  */
 
 void Practice_Init() {
-    RegConsoleCmd("sm_nadepractice", Command_Menu, "Меню тренировки гранат");
-    RegConsoleCmd("sm_practice", Command_Menu, "Меню тренировки гранат");
-    RegConsoleCmd("sm_back", Command_Back, "Вернуться в позицию последнего броска");
-    RegConsoleCmd("sm_last", Command_Last, "Повторить последний бросок");
-    RegConsoleCmd("sm_noflash", Command_NoFlash, "Не слепнуть от флешек (вкл/выкл)");
+    RegConsoleCmd("sm_nadepractice", Command_Menu, "Grenade practice menu");
+    RegConsoleCmd("sm_practice", Command_Menu, "Grenade practice menu");
+    RegConsoleCmd("sm_back", Command_Back, "Return to the position of the last throw");
+    RegConsoleCmd("sm_last", Command_Last, "Replay the last throw");
+    RegConsoleCmd("sm_noflash", Command_NoFlash, "Do not get flashed (toggle)");
 
-    // sm_noclip может быть занят админской командой funcommands. Слушатель команды
-    // срабатывает раньше обработчиков, поэтому в активном режиме !noclip — наш,
-    // а вне режима команда достаётся funcommands.
-    // CSS-VERIFY: при загруженном funcommands.smx !noclip в режиме переключает наш noclip один раз.
-    RegConsoleCmd("sm_noclip", Command_NoclipFallback, "Noclip в режиме тренировки");
+    // sm_noclip may be taken by the funcommands admin command. A command listener runs
+    // before the handlers, so while the mode is active !noclip is ours, and outside
+    // the mode the command goes to funcommands.
+    // CSS-VERIFY: with funcommands.smx loaded, !noclip in the mode toggles our noclip once.
+    RegConsoleCmd("sm_noclip", Command_NoclipFallback, "Noclip in the practice mode");
     AddCommandListener(Listener_Noclip, "sm_noclip");
 
     HookEvent("player_blind", Event_PlayerBlind, EventHookMode_Post);
 }
 
-// Режим остановлен: вернуть игрокам то, что режим у них изменил.
+// The mode stopped: give players back what the mode changed.
 void Practice_Stop() {
     for (int client = 1; client <= MaxClients; client++) {
         if (g_bNoclip[client] && IsClientInGame(client)) {
@@ -30,7 +30,7 @@ void Practice_Stop() {
     }
 }
 
-// Выдача при появлении: все три гранаты и деньги.
+// Spawn equipment: all three grenades and money.
 void Practice_Equip(int client) {
     if (!IsPlayerAlive(client) || GetClientTeam(client) < CS_TEAM_T) {
         return;
@@ -51,18 +51,18 @@ void Practice_Equip(int client) {
 }
 
 // ---------------------------------------------------------------------------
-// Бесконечные гранаты
+// Infinite grenades
 // ---------------------------------------------------------------------------
 
-// Вызывается на кадр позже появления снаряда.
+// Called one frame after the projectile appeared.
 void Practice_OnThrow(int client, int nade) {
     if (!g_cvInfinite.BoolValue) {
         return;
     }
 
-    // Способ 1: вернуть патрон, пока игра не убрала гранату из рук, — тогда она
-    // просто достаётся снова.
-    // CSS-VERIFY: после броска с восстановленным запасом игрок остаётся с той же гранатой в руках.
+    // Way 1: give the ammo back before the game removes the grenade from the hands,
+    // so it is simply drawn again.
+    // CSS-VERIFY: after a throw with restored ammo the player keeps the same grenade in hand.
     int weapon = FindWeaponByClass(client, g_NadeWeapon[nade]);
     if (weapon != -1 && HasEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType")) {
         int ammoType = GetEntProp(weapon, Prop_Send, "m_iPrimaryAmmoType");
@@ -72,7 +72,7 @@ void Practice_OnThrow(int client, int nade) {
         }
     }
 
-    // Способ 2 (подстраховка): если граната всё же пропала — выдать новую.
+    // Way 2 (fallback): if the grenade is gone anyway, give a new one.
     DataPack pack;
     CreateDataTimer(1.2, Timer_Refill, pack, TIMER_FLAG_NO_MAPCHANGE);
     pack.WriteCell(GetClientUserId(client));
@@ -97,7 +97,7 @@ public Action Timer_Refill(Handle timer, DataPack pack) {
 }
 
 // ---------------------------------------------------------------------------
-// Урон и ослепление
+// Damage and blindness
 // ---------------------------------------------------------------------------
 
 public Action Practice_OnTakeDamage(int victim, int &attacker, int &inflictor, float &damage, int &damagetype) {
@@ -122,7 +122,7 @@ public void Event_PlayerBlind(Event event, const char[] name, bool dontBroadcast
     if (client == 0 || !g_bNoFlash[client] || !IsClientInGame(client)) {
         return;
     }
-    // CSS-VERIFY: обнуление этих свойств в player_blind убирает ослепление.
+    // CSS-VERIFY: resetting these properties in player_blind removes the blindness.
     if (HasEntProp(client, Prop_Send, "m_flFlashMaxAlpha") && HasEntProp(client, Prop_Send, "m_flFlashDuration")) {
         SetEntPropFloat(client, Prop_Send, "m_flFlashMaxAlpha", 0.5);
         SetEntPropFloat(client, Prop_Send, "m_flFlashDuration", 0.0);
@@ -132,7 +132,7 @@ public void Event_PlayerBlind(Event event, const char[] name, bool dontBroadcast
 }
 
 // ---------------------------------------------------------------------------
-// Команды
+// Commands
 // ---------------------------------------------------------------------------
 
 void Practice_ToggleNoclip(int client) {
@@ -152,7 +152,7 @@ public Action Listener_Noclip(int client, const char[] command, int argc) {
     return Plugin_Stop;
 }
 
-// До этого обработчика дело доходит, только когда режим не активен.
+// This handler is reached only when the mode is not active.
 public Action Command_NoclipFallback(int client, int args) {
     return Plugin_Continue;
 }
@@ -215,7 +215,7 @@ void Practice_TellOption(int client, const char[] phrase, bool value) {
 }
 
 // ---------------------------------------------------------------------------
-// Главное меню
+// Main menu
 // ---------------------------------------------------------------------------
 
 public Action Command_Menu(int client, int args) {

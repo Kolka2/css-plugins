@@ -1,16 +1,16 @@
 /*
- * hints.sp — подсказки по выбранному лайнапу: кольцо в точке броска, метка
- * «куда смотреть», кольцо в точке приземления, текст с расстоянием и
- * отклонением прицела. Всё видно только самому игроку.
+ * hints.sp - hints for the selected lineup: a ring at the throw spot, an aim
+ * marker, a ring at the landing spot, text with the distance and the aim
+ * deviation. Everything is visible to the player only.
  */
 
-#define HINT_DRAW_PERIOD 1.0    // как часто перерисовываются кольца и метка, с
+#define HINT_DRAW_PERIOD 1.0    // how often the rings and the marker are redrawn, seconds
 
 char g_ArrowsUnicode[8][] = { "↑", "↖", "←", "↙", "↓", "↘", "→", "↗" };
 char g_ArrowsAscii[8][] = { "^", "<^", "<", "<v", "v", "v>", ">", "^>" };
 
 void Hints_Init() {
-    RegConsoleCmd("sm_hints", Command_Hints, "Подсказки по выбранному лайнапу (вкл/выкл)");
+    RegConsoleCmd("sm_hints", Command_Hints, "Hints for the selected lineup (toggle)");
     g_HudSync = CreateHudSynchronizer();
 }
 
@@ -26,7 +26,7 @@ public bool Hints_TraceWorld(int entity, int contentsMask) {
     return entity == 0 || entity > MaxClients;
 }
 
-// Выбирает лайнап для подсказок и заранее считает точки для отрисовки.
+// Selects a lineup for hints and precomputes the points to draw.
 void Hints_Select(int client, int id) {
     int index = Lineups_IndexById(id);
     if (index == -1) {
@@ -35,7 +35,7 @@ void Hints_Select(int client, int id) {
     Lineup lineup;
     g_Lineups.GetArray(index, lineup);
 
-    // Позиция броска в прыжке записана в воздухе — подсказка ведёт к точке на земле под ней.
+    // A jump throw position is recorded in the air: the hint leads to the ground point below it.
     float origin[3], below[3], ground[3];
     origin = lineup.origin;
     below = origin;
@@ -47,7 +47,7 @@ void Hints_Select(int client, int id) {
         ground = origin;
     }
 
-    // Метка взгляда: точка на луче взгляда из глаз игрока, стоящего на месте броска.
+    // Aim marker: a point on the view ray from the eyes of a player standing at the throw spot.
     float eye[3], angles[3], forwardDir[3], target[3], marker[3];
     eye = ground;
     eye[2] += (lineup.throwType == THROW_CROUCH) ? 47.0 : 64.0;
@@ -59,7 +59,7 @@ void Hints_Select(int client, int id) {
     }
     TR_TraceRayFilter(eye, target, MASK_SOLID, RayType_EndPoint, Hints_TraceWorld);
     float fraction = TR_GetFraction();
-    // Немного не доходя до стены, чтобы спрайт не утонул в ней.
+    // Stop a bit short of the wall so the sprite does not sink into it.
     float reach = dist * fraction - 8.0;
     if (reach < 16.0) {
         reach = 16.0;
@@ -97,7 +97,7 @@ public Action Command_Hints(int client, int args) {
 }
 
 // ---------------------------------------------------------------------------
-// Текст
+// Text
 // ---------------------------------------------------------------------------
 
 void Hints_SendKeyHint(int client, const char[] text) {
@@ -110,14 +110,14 @@ void Hints_SendKeyHint(int client, const char[] text) {
     EndMessage();
 }
 
-// ready — прицел и позиция в допуске (в режиме HUD текст становится зелёным).
+// ready: aim and position are within tolerance (in HUD mode the text turns green).
 void Hints_ShowText(int client, const char[] text, bool ready) {
     switch (g_cvHintMode.IntValue) {
         case 1: {
             PrintHintText(client, "%s", text);
         }
         case 2: {
-            // CSS-VERIFY: HudMsg (ShowSyncHudText) отображается в CS:S; если нет — режимы 0 и 1.
+            // CSS-VERIFY: HudMsg (ShowSyncHudText) is displayed in CS:S; if not, use modes 0 and 1.
             float hold = g_cvHintInterval.FloatValue + 0.2;
             if (ready) {
                 SetHudTextParams(-1.0, 0.62, hold, 60, 255, 60, 255, 0, 0.0, 0.0, 0.0);
@@ -127,7 +127,7 @@ void Hints_ShowText(int client, const char[] text, bool ready) {
             ShowSyncHudText(client, g_HudSync, "%s", text);
         }
         default: {
-            // CSS-VERIFY: KeyHintText показывает многострочный текст справа и не издаёт звука.
+            // CSS-VERIFY: KeyHintText shows multi-line text on the right without a sound.
             Hints_SendKeyHint(client, text);
         }
     }
@@ -142,7 +142,7 @@ void Hints_ClearText(int client) {
 }
 
 // ---------------------------------------------------------------------------
-// Обновление
+// Update
 // ---------------------------------------------------------------------------
 
 void Hints_Frame(int client, float now) {
@@ -171,13 +171,13 @@ void Hints_Frame(int client, float now) {
     GetClientEyeAngles(client, angles);
     ground = g_HintGround[client];
 
-    // Позиция: расстояние по горизонтали и направление относительно взгляда.
+    // Position: horizontal distance and direction relative to the view.
     float dx = ground[0] - origin[0];
     float dy = ground[1] - origin[1];
     float dist = SquareRoot(dx * dx + dy * dy);
     bool posOk = dist <= g_cvHintPosRadius.FloatValue;
 
-    // Прицел: положительный dPitch — нужно опустить, положительный dYaw — повернуть влево.
+    // Aim: positive dPitch = aim lower, positive dYaw = turn left.
     float dPitch = lineup.angles[0] - angles[0];
     float dYaw = NormalizeAngle(lineup.angles[1] - angles[1]);
     float tol = g_cvHintAngleTol.FloatValue;
@@ -223,7 +223,7 @@ void Hints_Frame(int client, float now) {
     }
     Hints_ShowText(client, text, ready);
 
-    // Кольца и метка — реже текста: это временные сущности с бюджетом на кадр.
+    // Rings and the marker are updated less often than the text: they are budgeted temp entities.
     if (now < g_NextHintDraw[client]) {
         return;
     }
@@ -233,7 +233,7 @@ void Hints_Frame(int client, float now) {
     float ring[3], marker[3], landing[3];
     ring = ground;
     ring[2] += 2.0;
-    // CSS-VERIFY: размер кольца соответствует sm_nadepractice_hint_pos_radius.
+    // CSS-VERIFY: the ring size matches sm_nadepractice_hint_pos_radius.
     int ringColor[4] = { 255, 220, 60, 255 };
     if (ready) {
         ringColor = { 60, 255, 60, 255 };

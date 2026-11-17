@@ -1,21 +1,21 @@
 /*
- * preview.sp — модель полёта гранаты, предпросмотр траектории до броска и
- * сверка предсказания с фактическим броском.
+ * preview.sp - grenade flight model, trajectory preview before the throw and
+ * comparison of the prediction with the real throw.
  *
- * Исходников гранат CS:S в открытом Source SDK 2013 нет (там только HL2/HL2MP),
- * поэтому модель восстановлена по общему коду движка (PhysicsToss для
- * MOVETYPE_FLYGRAVITY) и известной логике гранат CS: все константы вынесены в
- * квары sm_nadepractice_sim_* и подстраиваются по сверке (!preverror, debug-лог).
+ * The CS:S grenade sources are not in the public Source SDK 2013 (HL2/HL2MP only),
+ * so the model is rebuilt from the shared engine code (PhysicsToss for
+ * MOVETYPE_FLYGRAVITY) and the known CS grenade logic: all constants are cvars
+ * sm_nadepractice_sim_* tuned with the prediction check (!preverror, debug log).
  *
- * CSS-VERIFY: вся модель — формула начальной скорости, гравитация, отскок,
- * порог остановки, время детонации. Критерий: средняя ошибка !preverror.
+ * CSS-VERIFY: the whole model - initial velocity formula, gravity, bounce,
+ * stop threshold, detonation time. Criterion: average !preverror error.
  */
 
-#define SIM_SAMPLE_STEPS 3      // каждые столько шагов модели — точка траектории
+#define SIM_SAMPLE_STEPS 3      // a trajectory point every this many model steps
 
 void Preview_Init() {
-    RegConsoleCmd("sm_preview", Command_Preview, "Предпросмотр траектории до броска (вкл/выкл)");
-    RegConsoleCmd("sm_preverror", Command_PrevError, "Статистика ошибок предпросмотра за сессию");
+    RegConsoleCmd("sm_preview", Command_Preview, "Trajectory preview before the throw (toggle)");
+    RegConsoleCmd("sm_preverror", Command_PrevError, "Preview error statistics for the session");
 }
 
 void Preview_ResetClient(int client) {
@@ -28,26 +28,26 @@ void Preview_ResetClient(int client) {
 }
 
 // ---------------------------------------------------------------------------
-// Модель
+// Model
 // ---------------------------------------------------------------------------
 
 public bool Sim_TraceFilter(int entity, int contentsMask) {
     if (entity == 0) {
-        return true;        // мир
+        return true;        // world
     }
     if (entity <= MaxClients) {
-        return false;       // игроков модель не учитывает
+        return false;       // the model ignores players
     }
     return !(entity <= MAX_EDICTS && g_bProjectileEnt[entity]);
 }
 
-// Начальные позиция и скорость снаряда по состоянию игрока.
+// Initial projectile position and velocity from the player state.
 void Sim_ThrowParams(const float eye[3], const float angles[3], const float playerVel[3], float pos[3], float vel[3]) {
     float pitch = angles[0];
     if (pitch > 90.0) {
         pitch -= 360.0;
     }
-    // Игра поднимает бросок относительно взгляда: при взгляде в горизонт граната летит на 10° выше.
+    // The game raises the throw relative to the view: looking at the horizon, the grenade flies 10 degrees higher.
     float offset = g_cvSimPitchOffset.FloatValue;
     pitch = offset + pitch * ((90.0 - offset) / 90.0);
 
@@ -63,7 +63,7 @@ void Sim_ThrowParams(const float eye[3], const float angles[3], const float play
     throwAngles[2] = 0.0;
     GetAngleVectors(throwAngles, forwardDir, NULL_VECTOR, NULL_VECTOR);
 
-    // Снаряд появляется чуть впереди глаз; если там стена — у стены.
+    // The projectile appears a bit in front of the eyes; at the wall if one is there.
     float target[3], mins[3], maxs[3];
     float hull = g_cvSimHull.FloatValue;
     float dist = g_cvSimForward.FloatValue;
@@ -93,7 +93,7 @@ void Sim_AddPoint(ArrayList path, const float pos[3], int kind) {
     path.PushArray(point);
 }
 
-// Моделирует полёт. path (может быть null) получает точки траектории, end — точку детонации.
+// Simulates the flight. path (may be null) receives trajectory points, end the detonation point.
 void Sim_Run(const float startPos[3], const float startVel[3], int nade, ArrayList path, float end[3]) {
     float dt = GetTickInterval() * float(g_cvSimTickMult.IntValue);
     float gravity = g_cvGravity.FloatValue * g_cvSimGravity.FloatValue;
@@ -103,7 +103,7 @@ void Sim_Run(const float startPos[3], const float startVel[3], int nade, ArrayLi
     int maxBounces = g_cvSimMaxBounces.IntValue;
     float hull = g_cvSimHull.FloatValue;
 
-    // HE и флешка взрываются на первой проверке таймера после fuse; дым — когда остановится.
+    // HE and flash detonate at the first timer check after the fuse; smoke when it stops.
     float fuse = g_cvSimFuse.FloatValue;
     float think = g_cvSimThink.FloatValue;
     float detonateAt = fuse;
@@ -129,13 +129,13 @@ void Sim_Run(const float startPos[3], const float startVel[3], int nade, ArrayLi
 
     for (int step = 0; step < maxSteps; step++) {
         if (resting) {
-            break;      // дальше позиция не меняется
+            break;      // the position does not change any more
         }
         if (nade != NADE_SMOKE && time >= detonateAt) {
             break;
         }
 
-        // Гравитация: как в PhysicsAddGravityMove — средняя вертикальная скорость за шаг.
+        // Gravity as in PhysicsAddGravityMove: average vertical velocity over the step.
         float newZ = vel[2] - gravity * dt;
         move[0] = vel[0] * dt;
         move[1] = vel[1] * dt;
@@ -155,7 +155,7 @@ void Sim_Run(const float startPos[3], const float startVel[3], int nade, ArrayLi
             TR_GetPlaneNormal(INVALID_HANDLE, normal);
             bounces++;
 
-            // Отражение (overbounce 2.0) и потеря скорости.
+            // Reflection (overbounce 2.0) and speed loss.
             float backoff = GetVectorDotProduct(vel, normal) * 2.0;
             for (int i = 0; i < 3; i++) {
                 vel[i] = (vel[i] - normal[i] * backoff) * elasticity;
@@ -166,7 +166,7 @@ void Sim_Run(const float startPos[3], const float startVel[3], int nade, ArrayLi
             float speedSqr = GetVectorDotProduct(vel, vel);
 
             if (normal[2] > 0.7) {
-                // Пол: остановиться или докатить остаток шага.
+                // Floor: stop, or move for the rest of the step.
                 if (speedSqr < stopSqr) {
                     resting = true;
                 } else {
@@ -180,7 +180,7 @@ void Sim_Run(const float startPos[3], const float startVel[3], int nade, ArrayLi
                     }
                 }
             } else if (speedSqr < stopSqr) {
-                // Стена: слишком медленно — скорость гасится, дальше падает под гравитацией.
+                // Wall: too slow, the velocity is dropped and the grenade falls under gravity.
                 vel[0] = 0.0;
                 vel[1] = 0.0;
                 vel[2] = 0.0;
@@ -191,7 +191,7 @@ void Sim_Run(const float startPos[3], const float startVel[3], int nade, ArrayLi
                 CopyVector(pos, lastMark);
             }
             if (bounces >= maxBounces) {
-                break;      // ограничение нагрузки
+                break;      // load limit
             }
         } else if ((step % SIM_SAMPLE_STEPS) == SIM_SAMPLE_STEPS - 1) {
             Sim_AddPoint(path, pos, PT_NORMAL);
@@ -206,7 +206,7 @@ void Sim_Run(const float startPos[3], const float startVel[3], int nade, ArrayLi
 }
 
 // ---------------------------------------------------------------------------
-// Предпросмотр
+// Preview
 // ---------------------------------------------------------------------------
 
 void Preview_Frame(int client, float now) {
@@ -233,8 +233,8 @@ void Preview_Frame(int client, float now) {
     g_SimPath.Clear();
     Sim_Run(pos, vel, nade, g_SimPath, end);
 
-    // Лучи живут чуть дольше интервала, чтобы линия не мигала.
-    // CSS-VERIFY: при времени жизни ~0.15 с линия предпросмотра выглядит непрерывной.
+    // Beams live a bit longer than the interval so the line does not blink.
+    // CSS-VERIFY: with a lifetime of about 0.15 s the preview line looks continuous.
     float life = interval + 0.05;
     int count = g_SimPath.Length;
     int stride = Tracer_Stride(count, g_cvPrevMaxSeg.IntValue);
@@ -258,10 +258,10 @@ void Preview_Frame(int client, float now) {
 }
 
 // ---------------------------------------------------------------------------
-// Сверка
+// Prediction check
 // ---------------------------------------------------------------------------
 
-// Реальный бросок: посчитать, где модель ждёт детонацию, и привязать к снаряду.
+// A real throw: compute where the model expects the detonation and attach it to the projectile.
 void Preview_OnThrow(int client, int entity) {
     float eye[3], angles[3], playerVel[3], pos[3], vel[3], end[3];
     eye = g_LastThrow[client].eye;
@@ -272,7 +272,7 @@ void Preview_OnThrow(int client, int entity) {
     Sim_Run(pos, vel, g_LastThrow[client].nade, null, end);
     Tracer_SetPrediction(entity, end);
 
-    // Расхождение начальных условий — первое, что нужно смотреть при настройке модели.
+    // The initial condition mismatch is the first thing to look at when tuning the model.
     float realPos[3], realVel[3];
     realPos = g_LastThrow[client].projOrigin;
     realVel = g_LastThrow[client].projVelocity;
@@ -282,7 +282,7 @@ void Preview_OnThrow(int client, int entity) {
         end[0], end[1], end[2]);
 }
 
-// Снаряд сдетонировал: сравнить с предсказанием.
+// The projectile detonated: compare with the prediction.
 void Preview_OnLanded(int client, int nade, const float predicted[3], const float actual[3]) {
     float error = GetVectorDistance(predicted, actual);
     g_ErrCount[client]++;

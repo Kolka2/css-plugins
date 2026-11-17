@@ -1,22 +1,22 @@
 /*
- * replay.sp — повтор броска: создаёт снаряд с сохранёнными начальными позицией
- * и скоростью, полёт и отскоки считает движок.
+ * replay.sp - throw replay: creates a projectile with the saved initial position
+ * and velocity; the engine computes the flight and the bounces.
  *
- * Чего плагин без gamedata сделать не может: вызвать у снаряда штатную
- * детонацию. Игра назначает таймер детонации в своей функции Create(), которая
- * для сущности, созданной через CreateEntityByName, не выполняется. Поэтому:
- *   - HE и флешку по истечении времени «взрывает» плагин: эффект взрыва / звук
- *     только владельцу, без урона и ослепления;
- *   - дым плагин ставит сам через env_particlesmokegrenade, когда снаряд остановился;
- *   - при sm_nadepractice_replay_engine_fuse 1 для HE/флешки пробуем запустить
- *     think движка через m_nNextThinkTick (экспериментально).
+ * What the plugin cannot do without gamedata: trigger the projectile's own
+ * detonation. The game sets the detonation timer in its Create() function, which
+ * does not run for an entity made with CreateEntityByName. Therefore:
+ *   - HE and flashbang are "detonated" by the plugin when the fuse runs out:
+ *     explosion effect / sound for the owner only, no damage and no blindness;
+ *   - the smoke is spawned by the plugin (env_particlesmokegrenade) once the projectile stops;
+ *   - with sm_nadepractice_replay_engine_fuse 1 the plugin tries to start the engine
+ *     think of HE/flash through m_nNextThinkTick (experimental).
  */
 
 #define REPLAY_FLASH_SOUND "weapons/flashbang/flashbang_explode1.wav"
 #define REPLAY_SMOKE_SOUND "weapons/smokegrenade/sg_explode.wav"
-#define REPLAY_MAX_LIFE    12.0     // снаряд повтора живёт не дольше этого, с
+#define REPLAY_MAX_LIFE    12.0     // a replay projectile lives no longer than this, seconds
 
-// Бросает снаряд повтора. Возвращает false, если не получилось (причина — в debug-логе).
+// Throws a replay projectile. Returns false on failure (the reason is in the debug log).
 bool Replay_Throw(int client, int nade, const float pos[3], const float vel[3]) {
     g_bReplaySpawning = true;
     int entity = CreateEntityByName(g_NadeProjectile[nade]);
@@ -30,8 +30,8 @@ bool Replay_Throw(int client, int nade, const float pos[3], const float vel[3]) 
     DispatchSpawn(entity);
     g_bReplaySpawning = false;
 
-    // CSS-VERIFY: снаряд, созданный плагином, летит и отскакивает как брошенный игроком
-    // (тип движения выставляет Spawn; гравитацию, упругость и трение — мы, как Create() игры).
+    // CSS-VERIFY: a projectile created by the plugin flies and bounces like a thrown one
+    // (Spawn sets the move type; gravity, elasticity and friction are set here, as the game's Create() does).
     if (HasEntProp(entity, Prop_Send, "m_hThrower")) {
         SetEntPropEnt(entity, Prop_Send, "m_hThrower", client);
     }
@@ -54,8 +54,8 @@ bool Replay_Throw(int client, int nade, const float pos[3], const float vel[3]) 
     float fuse = (nade == NADE_SMOKE) ? g_cvSimSmokeFuse.FloatValue : g_cvSimFuse.FloatValue;
     bool engineFuse = (nade != NADE_SMOKE) && g_cvReplayEngineFuse.BoolValue;
 
-    // CSS-VERIFY: m_nNextThinkTick. -1 = think движка не сработает (детонирует плагин);
-    // будущий тик = движок должен сдетонировать сам (только если Spawn назначил think).
+    // CSS-VERIFY: m_nNextThinkTick. -1 = the engine think never runs (the plugin detonates);
+    // a future tick = the engine should detonate by itself (only if Spawn set a think function).
     if (HasEntProp(entity, Prop_Data, "m_nNextThinkTick")) {
         int tick = -1;
         if (engineFuse) {
@@ -74,7 +74,7 @@ bool Replay_Throw(int client, int nade, const float pos[3], const float vel[3]) 
     item.ref = EntIndexToEntRef(entity);
     item.userid = GetClientUserId(client);
     item.nade = nade;
-    // При таймере движка плагин подстраховывает: взрывает сам, если движок не справился за секунду.
+    // With the engine timer the plugin is a fallback: it detonates if the engine has not within a second.
     item.detonateAt = now + fuse + (engineFuse ? 1.0 : 0.0);
     item.nextCheck = item.detonateAt;
     item.killAt = now + REPLAY_MAX_LIFE;
@@ -87,8 +87,8 @@ bool Replay_Throw(int client, int nade, const float pos[3], const float vel[3]) 
     return true;
 }
 
-// Проверяет кулдаун и запускает повтор; сообщает игроку о результате.
-// path/pathCount — упрощённая траектория для режима «только отрисовка» (может быть пустой).
+// Checks the cooldown and starts a replay; tells the player the result.
+// path/pathCount: simplified trajectory for the "draw only" mode (may be empty).
 bool Replay_Request(int client, int nade, const float pos[3], const float vel[3], bool hasProj, const float[] path, int pathCount) {
     float now = GetGameTime();
     if (now < g_NextReplay[client]) {
@@ -100,7 +100,7 @@ bool Replay_Request(int client, int nade, const float pos[3], const float vel[3]
     if (g_cvReplayMode.IntValue == 1 && hasProj && Replay_Throw(client, nade, pos, vel)) {
         return true;
     }
-    // Запасной вариант: показать сохранённую траекторию.
+    // Fallback: draw the saved trajectory.
     if (pathCount >= 2) {
         Tracer_AddStaticPath(client, nade, path, pathCount);
         NP_Print(client, "%t", "Replay Drawn");
@@ -123,7 +123,7 @@ void Replay_Frame(float now) {
         g_ReplayEnts.GetArray(i, item);
         int entity = EntRefToEntIndex(item.ref);
         if (entity == INVALID_ENT_REFERENCE || !IsValidEntity(entity)) {
-            g_ReplayEnts.Erase(i);      // сдетонировал движок или сущность удалена
+            g_ReplayEnts.Erase(i);      // detonated by the engine or the entity was removed
             continue;
         }
         if (now < item.detonateAt || now < item.nextCheck) {
@@ -131,7 +131,7 @@ void Replay_Frame(float now) {
         }
 
         if (item.nade == NADE_SMOKE && now < item.killAt) {
-            // Как в игре: дым срабатывает, когда граната остановилась.
+            // As in the game: a smoke pops once the grenade has stopped.
             float vel[3];
             GetEntityVelocity(entity, vel);
             if (GetVectorLength(vel) > 0.1) {
@@ -154,7 +154,7 @@ void Replay_Detonate(int entity, ReplayEnt item) {
 
     switch (item.nade) {
         case NADE_HE: {
-            // Клиентский эффект взрыва: урона не наносит.
+            // Client-side explosion effect: no damage.
             TE_SetupExplosion(pos, g_ExplosionSprite, 5.0, 1, 0, 300, 0);
             if (toAll) {
                 TE_SendToAll();
@@ -179,14 +179,14 @@ void Replay_Detonate(int entity, ReplayEnt item) {
     LogDebug("replay: detonated by plugin, nade=%s at (%.1f %.1f %.1f)", g_NadeKey[item.nade], pos[0], pos[1], pos[2]);
 }
 
-// Облако дыма как у настоящей гранаты. Видно всем игрокам (см. README, ограничения).
+// Smoke cloud like a real grenade's. Visible to all players (see README, limitations).
 void Replay_SpawnSmoke(const float pos[3]) {
     int smoke = CreateEntityByName("env_particlesmokegrenade");
     if (smoke == -1) {
         LogDebug("replay: env_particlesmokegrenade not created");
         return;
     }
-    // CSS-VERIFY: облако появляется при m_CurrentStage = 1 и рассеивается по m_FadeStartTime/m_FadeEndTime.
+    // CSS-VERIFY: the cloud appears with m_CurrentStage = 1 and fades by m_FadeStartTime/m_FadeEndTime.
     if (!HasEntProp(smoke, Prop_Send, "m_CurrentStage") || !HasEntProp(smoke, Prop_Send, "m_FadeStartTime")
         || !HasEntProp(smoke, Prop_Send, "m_FadeEndTime")) {
         LogMissingProp("env_particlesmokegrenade.m_CurrentStage/m_FadeStartTime/m_FadeEndTime");
@@ -229,7 +229,7 @@ void Replay_KillRef(int ref) {
     }
 }
 
-// Режим остановлен: убрать всё, что создал повтор.
+// The mode stopped: remove everything the replay created.
 void Replay_Stop() {
     ReplayEnt item;
     for (int i = 0; i < g_ReplayEnts.Length; i++) {

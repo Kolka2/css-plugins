@@ -1,20 +1,19 @@
 /*
- * tracer.sp — трассер реальных бросков: запись позиций снарядов каждый тик,
- * метки отскоков и детонации, отрисовка траекторий только владельцу.
+ * tracer.sp - tracer of real throws: projectile positions every tick, bounce and
+ * detonation marks, trajectories drawn for their owner only.
  *
- * Временные лучи живут ограниченное время, поэтому сохранённые траектории
- * перерисовываются циклами. Чтобы не упереться в лимит временных сущностей на
- * кадр, цикл растянут во времени: за один проход отправляется не больше
- * бюджета (TE_Take), остаток — на следующих проходах.
+ * Temp beams live for a limited time, so saved trajectories are redrawn in cycles.
+ * To stay within the per-frame temp entity limit, a cycle is spread over time:
+ * one pass sends no more than the budget (TE_Take), the rest goes in later passes.
  */
 
-#define TRACER_DRAW_TICK 0.1    // шаг прохода отрисовки, с
+#define TRACER_DRAW_TICK 0.1    // drawing pass step, seconds
 
 void Tracer_Init() {
-    RegConsoleCmd("sm_clear", Command_Clear, "Стереть свои трассеры");
-    RegConsoleCmd("sm_tracer", Command_Tracer, "Показывать трассеры бросков (вкл/выкл)");
+    RegConsoleCmd("sm_clear", Command_Clear, "Clear your trajectories");
+    RegConsoleCmd("sm_tracer", Command_Tracer, "Show throw trajectories (toggle)");
 
-    // CSS-VERIFY: события *_detonate есть в CS:S и содержат userid, x, y, z.
+    // CSS-VERIFY: the *_detonate events exist in CS:S and carry userid, x, y, z.
     char events[NADE_COUNT][] = { "hegrenade_detonate", "flashbang_detonate", "smokegrenade_detonate" };
     for (int i = 0; i < NADE_COUNT; i++) {
         if (!HookEventEx(events[i], Event_Detonate, EventHookMode_Post)) {
@@ -30,7 +29,7 @@ void Tracer_ResetClient(int client) {
     g_NextDraw[client] = 0.0;
 }
 
-// Стирает траектории игрока. Уже отправленные лучи доживают свой срок (пара секунд).
+// Clears the player's trajectories. Beams already sent live out their time (a couple of seconds).
 void Tracer_ClearClient(int client) {
     for (int slot = 0; slot < MAX_TRAJ; slot++) {
         delete g_TrajPoints[client][slot];
@@ -42,16 +41,16 @@ void Tracer_ClearClient(int client) {
 }
 
 // ---------------------------------------------------------------------------
-// Хранение траекторий
+// Trajectory storage
 // ---------------------------------------------------------------------------
 
-// Занимает следующий слот кольца траекторий игрока. Возвращает номер слота.
+// Takes the next slot of the player's trajectory ring. Returns the slot.
 int Tracer_NewTrajectory(int client, int nade) {
     int count = g_cvTraceCount.IntValue;
     if (count > MAX_TRAJ) {
         count = MAX_TRAJ;
     }
-    // Квар уменьшили — освободить лишние слоты.
+    // The cvar was lowered: free the extra slots.
     for (int i = count; i < MAX_TRAJ; i++) {
         delete g_TrajPoints[client][i];
     }
@@ -66,7 +65,7 @@ int Tracer_NewTrajectory(int client, int nade) {
     return slot;
 }
 
-// Добавляет точку; live = сразу дорисовать отрезок от предыдущей точки.
+// Adds a point; live = draw the segment from the previous point at once.
 bool Tracer_AddPoint(int client, int slot, int serial, const float pos[3], int kind, bool live) {
     ArrayList points = g_TrajPoints[client][slot];
     if (points == null || g_TrajSerial[client][slot] != serial || points.Length >= MAX_TRAJ_POINTS) {
@@ -97,7 +96,7 @@ int Tracer_PointKind(ArrayList points, int index) {
     return RoundToNearest(view_as<float>(points.Get(index, 3)));
 }
 
-// Следующая точка для отрисовки/экспорта: через stride, но не перескакивая отскоки и детонацию.
+// Next point to draw/export: stride ahead, but never skipping bounces and the detonation.
 int Tracer_NextPoint(ArrayList points, int index, int stride) {
     int last = points.Length - 1;
     int next = index + stride;
@@ -120,7 +119,7 @@ int Tracer_Stride(int pointCount, int maxSegments) {
     return (stride < 1) ? 1 : stride;
 }
 
-// Упрощённая траектория для лайнапа. Возвращает число точек.
+// Simplified trajectory for a lineup. Returns the number of points.
 int Tracer_ExportPath(ArrayList points, float[] out, int maxPoints) {
     int n = points.Length;
     if (n < 1) {
@@ -139,13 +138,13 @@ int Tracer_ExportPath(ArrayList points, float[] out, int maxPoints) {
         if (index >= n - 1) {
             break;
         }
-        // Последнее место всегда отдаём конечной точке.
+        // The last place always goes to the final point.
         index = (count == maxPoints - 1) ? n - 1 : Tracer_NextPoint(points, index, stride);
     }
     return count;
 }
 
-// Готовая траектория (из лайнапа или последнего броска) — для повтора «только отрисовкой».
+// A ready trajectory (from a lineup or the last throw) for the "draw only" replay.
 void Tracer_AddStaticPath(int client, int nade, const float[] path, int count) {
     int slot = Tracer_NewTrajectory(client, nade);
     int serial = g_TrajSerial[client][slot];
@@ -156,13 +155,13 @@ void Tracer_AddStaticPath(int client, int nade, const float[] path, int count) {
         pos[2] = path[i * 3 + 2];
         Tracer_AddPoint(client, slot, serial, pos, (i == count - 1) ? PT_DETONATE : PT_NORMAL, false);
     }
-    // Перерисовать сразу, не дожидаясь конца текущего цикла.
+    // Redraw at once, without waiting for the current cycle to end.
     g_DrawSlot[client] = -1;
     g_DrawNextCycle[client] = 0.0;
 }
 
 // ---------------------------------------------------------------------------
-// Отслеживание снарядов
+// Projectile tracking
 // ---------------------------------------------------------------------------
 
 void Tracer_Track(int entity, int client, int nade, const float pos[3], bool replay, int throwSerial) {
@@ -198,7 +197,7 @@ int Tracer_FindByRef(int ref) {
     return -1;
 }
 
-// Привязывает предсказанную точку приземления к отслеживаемому снаряду (для сверки).
+// Attaches the predicted landing point to a tracked projectile (for the prediction check).
 void Tracer_SetPrediction(int entity, const float predicted[3]) {
     int index = Tracer_FindByRef(EntIndexToEntRef(entity));
     if (index == -1) {
@@ -231,12 +230,12 @@ void Tracer_Frame(float now) {
         bool hasVel = GetEntityVelocity(entity, vel);
 
         if (now - item.spawnTime > maxTime) {
-            // Слишком долго живёт (например, дым не сработал) — закрываем запись.
+            // Lives too long (e.g. the smoke did not pop): close the record.
             Tracer_Finish(i, pos, false);
             continue;
         }
 
-        // Отскок = скорость за тик изменилась сильнее, чем могла от одной гравитации.
+        // Bounce = the velocity changed within a tick more than gravity alone could.
         bool bounce = false;
         if (hasVel && item.hasVel) {
             float dv[3];
@@ -272,7 +271,7 @@ void Tracer_AddPointTracked(Tracked item, const float pos[3], int kind) {
     item.lastPoint = pos;
 }
 
-// Закрывает запись снаряда: конечная точка, данные последнего броска, сверка предсказания.
+// Closes a projectile record: final point, last throw data, prediction check.
 void Tracer_Finish(int index, const float pos[3], bool detonated) {
     Tracked item;
     g_Tracked.GetArray(index, item);
@@ -299,7 +298,7 @@ void Tracer_Finish(int index, const float pos[3], bool detonated) {
     LogDebug("trajectory end: %N nade=%s replay=%d detonated=%d at (%.1f %.1f %.1f) flight=%.2fs",
         client, g_NadeKey[item.nade], item.replay, detonated, pos[0], pos[1], pos[2], GetGameTime() - item.spawnTime);
 
-    // Дым, запись которого оборвалась без детонации, в статистику не идёт.
+    // A smoke whose record ended without a detonation does not count in the statistics.
     if (item.hasPrediction && (detonated || item.nade != NADE_SMOKE)) {
         Preview_OnLanded(client, item.nade, item.predicted, pos);
     }
@@ -337,7 +336,7 @@ public void Event_Detonate(Event event, const char[] name, bool dontBroadcast) {
     pos[2] = event.GetFloat("z");
     bool hasPos = (pos[0] != 0.0 || pos[1] != 0.0 || pos[2] != 0.0);
 
-    // Событие не называет сущность: берём снаряд этого игрока и типа, ближайший к точке.
+    // The event does not name the entity: take this player's projectile of this type closest to the point.
     int best = -1;
     float bestDist = -1.0;
     Tracked item;
@@ -364,7 +363,7 @@ public void Event_Detonate(Event event, const char[] name, bool dontBroadcast) {
 }
 
 // ---------------------------------------------------------------------------
-// Отрисовка
+// Drawing
 // ---------------------------------------------------------------------------
 
 void Tracer_DrawMark(int client, const float pos[3], int kind, int nade, float life) {
@@ -413,7 +412,7 @@ void Tracer_DrawClient(int client, float now) {
             g_DrawNextCycle[client] = now + 0.5;
             return;
         }
-        // Цикл не короче квара и не короче времени, за которое бюджет пропустит все отрезки.
+        // A cycle is no shorter than the cvar and than the time the budget needs for all segments.
         float need = float(total) / float(g_cvTeBudget.IntValue) * TRACER_DRAW_TICK + 0.2;
         float period = g_cvTraceRedraw.FloatValue;
         if (period < need) {
@@ -421,7 +420,7 @@ void Tracer_DrawClient(int client, float now) {
         }
         g_DrawLife[client] = period + 0.3;
         if (g_DrawLife[client] > 25.0) {
-            g_DrawLife[client] = 25.0;  // предел времени жизни временного луча
+            g_DrawLife[client] = 25.0;  // temp beam lifetime limit
         }
         g_DrawNextCycle[client] = now + period;
         g_DrawSlot[client] = 0;
@@ -453,17 +452,17 @@ void Tracer_DrawClient(int client, float now) {
         end[2] = b[2];
 
         if (!Draw_Beam(client, start, end, life, width, g_NadeColor[g_TrajNade[client][slot]])) {
-            return;     // бюджет кадра исчерпан — продолжим на следующем проходе
+            return;     // frame budget used up: continue in the next pass
         }
         Tracer_DrawMark(client, end, RoundToNearest(b[3]), g_TrajNade[client][slot], life);
         g_DrawIdx[client] = next;
     }
 
-    g_DrawSlot[client] = -1;    // цикл закончен
+    g_DrawSlot[client] = -1;    // cycle finished
 }
 
 // ---------------------------------------------------------------------------
-// Команды
+// Commands
 // ---------------------------------------------------------------------------
 
 public Action Command_Clear(int client, int args) {

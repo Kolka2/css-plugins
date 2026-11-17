@@ -7,17 +7,17 @@
 #define NADEPRACTICE_API_VERSION 1
 
 /**
- * Активен ли режим тренировки гранат прямо сейчас.
+ * Whether the grenade practice mode is active right now.
  *
- * Пока режим активен, он владеет деньгами и гранатами игроков, уроном,
- * числом ботов (bot_quota 0) и своими временными кварами.
+ * While active, the mode owns players' money and grenades, damage,
+ * the bot count (bot_quota 0) and its own temporary cvars.
  *
- * @return  true, если режим запущен (sm_nadepractice_start или автозапуск).
+ * @return  true if the mode is running (sm_nadepractice_start or autostart).
  */
 native bool Nadepractice_IsActive();
 
 /**
- * Возвращает версию API загруженного плагина (сравнивать с NADEPRACTICE_API_VERSION).
+ * API version of the loaded plugin (compare with NADEPRACTICE_API_VERSION).
  */
 native int Nadepractice_GetApiVersion();
 

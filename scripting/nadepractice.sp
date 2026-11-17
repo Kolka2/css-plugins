@@ -1,25 +1,25 @@
 /*
- * nadepractice — режим тренировки раскидки гранат для CS:S.
+ * nadepractice - grenade lineup practice mode for CS:S.
  *
- * Слой:        режим
- * Владеет:     состоянием тренировки каждого игрока (noclip, последний бросок,
- *              трассеры, выбранный лайнап), базой лайнапов
- *              (configs/nadepractice/lineups/<map>.cfg), деньгами, гранатами и
- *              уроном игроков, пока режим активен, числом ботов (bot_quota 0),
- *              своими временными кварами (список — в Mode_Start).
- * Читает:      события игры (player_spawn, *_detonate, player_blind), sv_gravity.
- * Использует:  ничего (интеграция с warmup — позже).
- * API:         include/nadepractice.inc
+ * Layer:   mode
+ * Owns:    practice state of every player (noclip, last throw, trajectories,
+ *          selected lineup), the lineup database
+ *          (configs/nadepractice/lineups/<map>.cfg), players' money, grenades and
+ *          damage while the mode is active, the bot count (bot_quota 0),
+ *          its own temporary cvars (listed in Mode_Start).
+ * Reads:   game events (player_spawn, *_detonate, player_blind), sv_gravity.
+ * Uses:    nothing (warmup integration is planned for later).
+ * API:     include/nadepractice.inc
  *
- * Части (scripting/nadepractice/):
- *   util.sp     — лог, временные квары, проверки клиентов, отрисовка, сообщения
- *   throws.sp   — обнаружение бросков и снимок «последнего броска»
- *   replay.sp   — повтор броска (создание снаряда и его детонация)
- *   practice.sp — бесконечные гранаты, урон, команды игрока, главное меню
- *   tracer.sp   — запись и отрисовка траекторий реальных бросков
- *   lineups.sp  — база лайнапов: файл, команды, меню
- *   hints.sp    — подсказки по выбранному лайнапу
- *   preview.sp  — модель полёта, предпросмотр до броска и сверка с фактом
+ * Parts (scripting/nadepractice/):
+ *   util.sp     - logging, temporary cvars, client checks, drawing, chat
+ *   throws.sp   - throw detection and the "last throw" snapshot
+ *   replay.sp   - throw replay (projectile creation and detonation)
+ *   practice.sp - infinite grenades, damage, player commands, main menu
+ *   tracer.sp   - recording and drawing real throw trajectories
+ *   lineups.sp  - lineup database: file, commands, menus
+ *   hints.sp    - hints for the selected lineup
+ *   preview.sp  - flight model, preview before the throw, prediction check
  */
 
 #pragma semicolon 1
@@ -36,13 +36,13 @@
 public Plugin myinfo = {
     name        = "[CS:S] Nade Practice",
     author      = "css-plugins",
-    description = "Режим тренировки раскидки гранат",
+    description = "Grenade lineup practice mode",
     version     = PLUGIN_VERSION,
     url         = ""
 };
 
 // ---------------------------------------------------------------------------
-// Константы
+// Constants
 // ---------------------------------------------------------------------------
 
 #define NADE_NONE  -1
@@ -58,16 +58,16 @@ public Plugin myinfo = {
 #define THROW_RUNJUMP 4
 #define THROW_COUNT   5
 
-// Точки траектории: обычная, отскок, детонация.
+// Trajectory point kinds: normal, bounce, detonation.
 #define PT_NORMAL   0
 #define PT_BOUNCE   1
 #define PT_DETONATE 2
 
 #define MAX_EDICTS       2048
-#define MAX_PATH_POINTS  32     // точек упрощённой траектории в лайнапе
-#define MAX_TRAJ         10     // предел sm_nadepractice_trace_count
-#define MAX_TRAJ_POINTS  256    // точек в одной записанной траектории
-#define RUN_SPEED        60.0   // горизонтальная скорость, с которой бросок считается «с бега»
+#define MAX_PATH_POINTS  32     // points of the simplified trajectory in a lineup
+#define MAX_TRAJ         10     // upper limit of sm_nadepractice_trace_count
+#define MAX_TRAJ_POINTS  256    // points in one recorded trajectory
+#define RUN_SPEED        60.0   // horizontal speed above which a throw counts as "running"
 
 char g_NadeWeapon[NADE_COUNT][] = { "weapon_hegrenade", "weapon_flashbang", "weapon_smokegrenade" };
 char g_NadeProjectile[NADE_COUNT][] = { "hegrenade_projectile", "flashbang_projectile", "smokegrenade_projectile" };
@@ -79,31 +79,31 @@ char g_ThrowKey[THROW_COUNT][] = { "stand", "crouch", "jump", "run", "runjump" }
 char g_ThrowPhrase[THROW_COUNT][] = { "Throw Stand", "Throw Crouch", "Throw Jump", "Throw Run", "Throw RunJump" };
 
 // ---------------------------------------------------------------------------
-// Типы
+// Types
 // ---------------------------------------------------------------------------
 
-// Снимок броска: состояние игрока в момент появления снаряда и сам снаряд.
+// Throw snapshot: player state at the moment the projectile appears, and the projectile.
 enum struct ThrowInfo {
     bool valid;
-    int serial;             // уникальный номер броска
+    int serial;             // unique throw number
     int nade;
-    float origin[3];        // позиция игрока (ноги)
-    float eye[3];           // позиция глаз
-    float angles[3];        // углы взгляда
-    float velocity[3];      // скорость игрока
+    float origin[3];        // player position (feet)
+    float eye[3];           // eye position
+    float angles[3];        // view angles
+    float velocity[3];      // player velocity
     int buttons;
     int flags;
     int throwType;
     bool hasProj;
-    float projOrigin[3];    // начальная позиция снаряда
-    float projVelocity[3];  // начальная скорость снаряда
+    float projOrigin[3];    // initial projectile position
+    float projVelocity[3];  // initial projectile velocity
     bool hasDetonation;
     float detonation[3];
     int pathCount;
     float path[MAX_PATH_POINTS * 3];
 }
 
-// Снаряд повтора, которым управляет плагин.
+// Replay projectile driven by the plugin.
 enum struct ReplayEnt {
     int ref;
     int userid;
@@ -113,28 +113,28 @@ enum struct ReplayEnt {
     float killAt;
 }
 
-// Снаряд, за которым следит трассер.
+// Projectile followed by the tracer.
 enum struct Tracked {
     int ref;
     int userid;
     int nade;
-    int slot;               // слот траектории владельца
-    int serial;             // номер траектории (слот мог быть перезаписан)
-    int throwSerial;        // номер броска в g_LastThrow или 0 (повтор)
+    int slot;               // trajectory slot of the owner
+    int serial;             // trajectory serial (the slot may have been reused)
+    int throwSerial;        // throw serial in g_LastThrow, or 0 (replay)
     bool replay;
     float spawnTime;
     float nextSample;
     float lastPos[3];
-    float lastPoint[3];     // последняя записанная точка
+    float lastPoint[3];     // last recorded point
     float lastVel[3];
     bool hasVel;
     bool hasPrediction;
-    float predicted[3];     // где модель ждёт детонацию
+    float predicted[3];     // where the model expects the detonation
 }
 
-// Лайнап из базы.
+// Lineup from the database.
 enum struct Lineup {
-    int id;                 // номер на время карты (в файл не пишется)
+    int id;                 // id for the current map (not written to the file)
     char name[64];
     int nade;
     int throwType;
@@ -153,7 +153,7 @@ enum struct Lineup {
 }
 
 // ---------------------------------------------------------------------------
-// Глобальные переменные
+// Globals
 // ---------------------------------------------------------------------------
 
 ConVar g_cvEnabled;
@@ -175,7 +175,7 @@ ConVar g_cvReplayVisibleAll;
 ConVar g_cvReplayCooldown;
 ConVar g_cvReplaySmokeTime;
 
-// физика гранаты (общая для повтора и модели предпросмотра)
+// grenade physics (shared by replay and the preview model)
 ConVar g_cvSimGravity;
 ConVar g_cvSimElasticity;
 ConVar g_cvSimFriction;
@@ -203,7 +203,7 @@ ConVar g_cvHintMode;
 ConVar g_cvHintUnicode;
 ConVar g_cvHintLookDist;
 
-// preview и модель полёта
+// preview and flight model
 ConVar g_cvPrevDefault;
 ConVar g_cvPrevInterval;
 ConVar g_cvPrevMaxSeg;
@@ -218,7 +218,7 @@ ConVar g_cvSimForward;
 ConVar g_cvSimHull;
 ConVar g_cvSimPlayerVel;
 
-ConVar g_cvGravity;     // sv_gravity (только чтение)
+ConVar g_cvGravity;     // sv_gravity (read only)
 
 StringMap g_SavedCvars;
 char g_DebugLogPath[PLATFORM_MAX_PATH];
@@ -231,29 +231,29 @@ int g_HaloSprite = -1;
 int g_GlowSprite = -1;
 int g_ExplosionSprite = -1;
 
-// бюджет временных сущностей на кадр
+// temp entity budget per frame
 int g_TeTick[MAXPLAYERS + 1];
 int g_TeLeft[MAXPLAYERS + 1];
 
-// состояние игрока
+// player state
 bool g_bNoclip[MAXPLAYERS + 1];
 bool g_bNoFlash[MAXPLAYERS + 1];
 ThrowInfo g_LastThrow[MAXPLAYERS + 1];
 int g_PendingThrowRef[MAXPLAYERS + 1];
 float g_NextReplay[MAXPLAYERS + 1];
 
-// броски
+// throws
 int g_ThrowSerial;
 bool g_bProjectileEnt[MAX_EDICTS + 1];
 bool g_bLoggedMissingProp;
 
-// повтор
+// replay
 bool g_bReplaySpawning;
 int g_ReplayOwner[MAX_EDICTS + 1];
 ArrayList g_ReplayEnts;
 ArrayList g_ReplayEffects;
 
-// трассер
+// tracer
 ArrayList g_Tracked;
 ArrayList g_TrajPoints[MAXPLAYERS + 1][MAX_TRAJ];
 int g_TrajNade[MAXPLAYERS + 1][MAX_TRAJ];
@@ -267,14 +267,14 @@ float g_DrawLife[MAXPLAYERS + 1];
 float g_DrawNextCycle[MAXPLAYERS + 1];
 float g_NextDraw[MAXPLAYERS + 1];
 
-// лайнапы
+// lineups
 ArrayList g_Lineups;
 int g_NextLineupId = 1;
 char g_LineupsFile[PLATFORM_MAX_PATH];
 int g_MenuFilter[MAXPLAYERS + 1];
 int g_MenuLineup[MAXPLAYERS + 1];
 
-// подсказки
+// hints
 Handle g_HudSync;
 bool g_bHints[MAXPLAYERS + 1];
 int g_SelectedLineup[MAXPLAYERS + 1];
@@ -284,7 +284,7 @@ bool g_bHintShown[MAXPLAYERS + 1];
 float g_HintGround[MAXPLAYERS + 1][3];
 float g_HintMarker[MAXPLAYERS + 1][3];
 
-// предпросмотр и сверка
+// preview and prediction check
 ArrayList g_SimPath;
 bool g_bPreview[MAXPLAYERS + 1];
 float g_NextPreview[MAXPLAYERS + 1];
@@ -303,7 +303,7 @@ float g_ErrLast[MAXPLAYERS + 1];
 #include "nadepractice/preview.sp"
 
 // ---------------------------------------------------------------------------
-// Загрузка
+// Loading
 // ---------------------------------------------------------------------------
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max) {
@@ -322,61 +322,61 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 public void OnPluginStart() {
     LoadTranslations("nadepractice.phrases");
 
-    CreateConVar("sm_nadepractice_version", PLUGIN_VERSION, "Версия плагина", FCVAR_NOTIFY | FCVAR_DONTRECORD);
-    g_cvEnabled        = CreateConVar("sm_nadepractice_enabled", "1", "Разрешён ли режим (0 — режим нельзя запустить, запущенный останавливается)", _, true, 0.0, true, 1.0);
-    g_cvDebug          = CreateConVar("sm_nadepractice_debug", "0", "Подробный лог в logs/nadepractice_debug.log", _, true, 0.0, true, 1.0);
-    g_cvAutostart      = CreateConVar("sm_nadepractice_autostart", "0", "Запускать режим автоматически на каждой карте", _, true, 0.0, true, 1.0);
-    g_cvRestartOnStart = CreateConVar("sm_nadepractice_restart_on_start", "1", "При запуске режима перезапускать раунд (mp_restartgame 1), чтобы квары раунда применились сразу", _, true, 0.0, true, 1.0);
-    g_cvTeBudget       = CreateConVar("sm_nadepractice_te_per_frame", "24", "Сколько временных сущностей (лучи, кольца, спрайты) можно отправить одному игроку за кадр", _, true, 4.0, true, 31.0);
+    CreateConVar("sm_nadepractice_version", PLUGIN_VERSION, "Plugin version", FCVAR_NOTIFY | FCVAR_DONTRECORD);
+    g_cvEnabled        = CreateConVar("sm_nadepractice_enabled", "1", "Whether the mode is allowed (0 = cannot be started, a running mode stops)", _, true, 0.0, true, 1.0);
+    g_cvDebug          = CreateConVar("sm_nadepractice_debug", "0", "Verbose log in logs/nadepractice_debug.log", _, true, 0.0, true, 1.0);
+    g_cvAutostart      = CreateConVar("sm_nadepractice_autostart", "0", "Start the mode automatically on every map", _, true, 0.0, true, 1.0);
+    g_cvRestartOnStart = CreateConVar("sm_nadepractice_restart_on_start", "1", "Restart the round when the mode starts (mp_restartgame 1) so round cvars apply at once", _, true, 0.0, true, 1.0);
+    g_cvTeBudget       = CreateConVar("sm_nadepractice_te_per_frame", "24", "How many temp entities (beams, rings, sprites) may be sent to one player per frame", _, true, 4.0, true, 31.0);
 
-    g_cvInfinite      = CreateConVar("sm_nadepractice_infinite", "1", "Бесконечные гранаты: после броска выдаётся такая же", _, true, 0.0, true, 1.0);
-    g_cvGiveOnSpawn   = CreateConVar("sm_nadepractice_give_on_spawn", "1", "Выдавать HE, флешку и дым при появлении", _, true, 0.0, true, 1.0);
-    g_cvBlockDamage   = CreateConVar("sm_nadepractice_block_damage", "1", "Блокировать любой урон игрокам", _, true, 0.0, true, 1.0);
-    g_cvBlockSelfNade = CreateConVar("sm_nadepractice_block_self_nade_damage", "1", "Блокировать урон от своих гранат (имеет смысл при block_damage 0)", _, true, 0.0, true, 1.0);
+    g_cvInfinite      = CreateConVar("sm_nadepractice_infinite", "1", "Infinite grenades: the same grenade is given back after a throw", _, true, 0.0, true, 1.0);
+    g_cvGiveOnSpawn   = CreateConVar("sm_nadepractice_give_on_spawn", "1", "Give HE, flashbang and smoke on spawn", _, true, 0.0, true, 1.0);
+    g_cvBlockDamage   = CreateConVar("sm_nadepractice_block_damage", "1", "Block all damage to players", _, true, 0.0, true, 1.0);
+    g_cvBlockSelfNade = CreateConVar("sm_nadepractice_block_self_nade_damage", "1", "Block damage from your own grenades (useful with block_damage 0)", _, true, 0.0, true, 1.0);
 
-    g_cvReplayMode       = CreateConVar("sm_nadepractice_replay_mode", "1", "Повтор броска: 0 — только отрисовка сохранённой траектории, 1 — настоящий снаряд", _, true, 0.0, true, 1.0);
-    g_cvReplayEngineFuse = CreateConVar("sm_nadepractice_replay_engine_fuse", "0", "Детонация HE/флешки повтора: 0 — плагином (эффект без урона и ослепления), 1 — попытаться запустить таймер движка (экспериментально)", _, true, 0.0, true, 1.0);
-    g_cvReplayVisibleAll = CreateConVar("sm_nadepractice_replay_visible_all", "0", "Показывать снаряды повтора всем игрокам, а не только владельцу", _, true, 0.0, true, 1.0);
-    g_cvReplayCooldown   = CreateConVar("sm_nadepractice_replay_cooldown", "0.5", "Минимальный интервал между повторами одного игрока, с", _, true, 0.0, true, 10.0);
-    g_cvReplaySmokeTime  = CreateConVar("sm_nadepractice_replay_smoke_time", "18.0", "Сколько секунд живёт дым повтора", _, true, 2.0, true, 30.0);
+    g_cvReplayMode       = CreateConVar("sm_nadepractice_replay_mode", "1", "Throw replay: 0 = draw the saved trajectory only, 1 = real projectile", _, true, 0.0, true, 1.0);
+    g_cvReplayEngineFuse = CreateConVar("sm_nadepractice_replay_engine_fuse", "0", "HE/flash replay detonation: 0 = by the plugin (effect without damage or blindness), 1 = try to start the engine timer (experimental)", _, true, 0.0, true, 1.0);
+    g_cvReplayVisibleAll = CreateConVar("sm_nadepractice_replay_visible_all", "0", "Show replay projectiles to all players, not only the owner", _, true, 0.0, true, 1.0);
+    g_cvReplayCooldown   = CreateConVar("sm_nadepractice_replay_cooldown", "0.5", "Minimum interval between replays of one player, seconds", _, true, 0.0, true, 10.0);
+    g_cvReplaySmokeTime  = CreateConVar("sm_nadepractice_replay_smoke_time", "18.0", "How many seconds a replay smoke lasts", _, true, 2.0, true, 30.0);
 
-    g_cvSimGravity    = CreateConVar("sm_nadepractice_sim_gravity", "0.4", "Множитель sv_gravity для гранаты", _, true, 0.0, true, 5.0);
-    g_cvSimElasticity = CreateConVar("sm_nadepractice_sim_elasticity", "0.45", "Упругость гранаты (доля скорости после отскока)", _, true, 0.0, true, 0.9);
-    g_cvSimFriction   = CreateConVar("sm_nadepractice_sim_friction", "0.2", "Трение гранаты (выставляется снаряду повтора; в модели полёта не участвует)", _, true, 0.0, true, 10.0);
-    g_cvSimFuse       = CreateConVar("sm_nadepractice_sim_fuse", "1.5", "Время до детонации HE и флешки, с", _, true, 0.1, true, 10.0);
-    g_cvSimSmokeFuse  = CreateConVar("sm_nadepractice_sim_smoke_fuse", "1.5", "Минимальное время до срабатывания дыма, с (дальше — когда граната остановится)", _, true, 0.1, true, 10.0);
-    g_cvSimThink      = CreateConVar("sm_nadepractice_sim_think", "0.2", "Шаг проверки таймера детонации в движке, с (0 — детонация ровно по таймеру)", _, true, 0.0, true, 1.0);
+    g_cvSimGravity    = CreateConVar("sm_nadepractice_sim_gravity", "0.4", "sv_gravity multiplier for grenades", _, true, 0.0, true, 5.0);
+    g_cvSimElasticity = CreateConVar("sm_nadepractice_sim_elasticity", "0.45", "Grenade elasticity (fraction of speed kept after a bounce)", _, true, 0.0, true, 0.9);
+    g_cvSimFriction   = CreateConVar("sm_nadepractice_sim_friction", "0.2", "Grenade friction (set on replay projectiles; not used by the flight model)", _, true, 0.0, true, 10.0);
+    g_cvSimFuse       = CreateConVar("sm_nadepractice_sim_fuse", "1.5", "Fuse time of HE and flashbang, seconds", _, true, 0.1, true, 10.0);
+    g_cvSimSmokeFuse  = CreateConVar("sm_nadepractice_sim_smoke_fuse", "1.5", "Minimum time before a smoke pops, seconds (after that, when the grenade stops)", _, true, 0.1, true, 10.0);
+    g_cvSimThink      = CreateConVar("sm_nadepractice_sim_think", "0.2", "Engine detonation check interval, seconds (0 = exactly at the fuse time)", _, true, 0.0, true, 1.0);
 
-    g_cvTraceCount    = CreateConVar("sm_nadepractice_trace_count", "5", "Сколько последних траекторий хранить и показывать на игрока", _, true, 1.0, true, float(MAX_TRAJ));
-    g_cvTraceSample   = CreateConVar("sm_nadepractice_trace_sample", "0.05", "Шаг записи точек траектории, с (отскоки записываются всегда)", _, true, 0.015, true, 0.5);
-    g_cvTraceRedraw   = CreateConVar("sm_nadepractice_trace_redraw", "2.0", "Период перерисовки сохранённых траекторий, с", _, true, 0.5, true, 20.0);
-    g_cvTraceMaxSeg   = CreateConVar("sm_nadepractice_trace_max_segments", "24", "Максимум отрезков на одну траекторию при отрисовке (отскоки не пропускаются)", _, true, 4.0, true, 128.0);
-    g_cvTraceWidth    = CreateConVar("sm_nadepractice_trace_width", "1.5", "Толщина линии траектории", _, true, 0.5, true, 10.0);
-    g_cvTraceMaxTime  = CreateConVar("sm_nadepractice_trace_max_time", "12.0", "Сколько секунд максимум записывается один снаряд", _, true, 2.0, true, 60.0);
-    g_cvTraceBounceDv = CreateConVar("sm_nadepractice_trace_bounce_dv", "25.0", "Отскок: изменение скорости за тик сверх гравитации, юнитов/с", _, true, 1.0, true, 500.0);
+    g_cvTraceCount    = CreateConVar("sm_nadepractice_trace_count", "5", "How many recent trajectories to keep and show per player", _, true, 1.0, true, float(MAX_TRAJ));
+    g_cvTraceSample   = CreateConVar("sm_nadepractice_trace_sample", "0.05", "Trajectory sampling step, seconds (bounces are always recorded)", _, true, 0.015, true, 0.5);
+    g_cvTraceRedraw   = CreateConVar("sm_nadepractice_trace_redraw", "2.0", "Redraw period of saved trajectories, seconds", _, true, 0.5, true, 20.0);
+    g_cvTraceMaxSeg   = CreateConVar("sm_nadepractice_trace_max_segments", "24", "Maximum segments per drawn trajectory (bounces are never skipped)", _, true, 4.0, true, 128.0);
+    g_cvTraceWidth    = CreateConVar("sm_nadepractice_trace_width", "1.5", "Trajectory line width", _, true, 0.5, true, 10.0);
+    g_cvTraceMaxTime  = CreateConVar("sm_nadepractice_trace_max_time", "12.0", "Maximum recording time of one projectile, seconds", _, true, 2.0, true, 60.0);
+    g_cvTraceBounceDv = CreateConVar("sm_nadepractice_trace_bounce_dv", "25.0", "Bounce detection: velocity change per tick beyond gravity, units/s", _, true, 1.0, true, 500.0);
 
-    g_cvEditAccess = CreateConVar("sm_nadepractice_edit_access", "0", "Кто меняет базу лайнапов: 0 — все игроки, 1 — только админы (доступ sm_nadepractice_edit, по умолчанию флаг generic)", _, true, 0.0, true, 1.0);
+    g_cvEditAccess = CreateConVar("sm_nadepractice_edit_access", "0", "Who may change the lineup database: 0 = all players, 1 = admins only (override sm_nadepractice_edit, generic flag by default)", _, true, 0.0, true, 1.0);
 
-    g_cvHintInterval  = CreateConVar("sm_nadepractice_hint_interval", "0.25", "Период обновления подсказки, с", _, true, 0.05, true, 2.0);
-    g_cvHintPosRadius = CreateConVar("sm_nadepractice_hint_pos_radius", "6.0", "Допуск позиции, юнитов по горизонтали", _, true, 1.0, true, 64.0);
-    g_cvHintAngleTol  = CreateConVar("sm_nadepractice_hint_angle_tolerance", "0.5", "Допуск прицела, градусов", _, true, 0.05, true, 10.0);
-    g_cvHintMode      = CreateConVar("sm_nadepractice_hint_mode", "0", "Куда выводить подсказку: 0 — KeyHintText (панель справа), 1 — HintText, 2 — HUD-текст (цветной)", _, true, 0.0, true, 2.0);
-    g_cvHintUnicode   = CreateConVar("sm_nadepractice_hint_unicode", "1", "Стрелки в подсказке: 1 — юникод, 0 — ASCII", _, true, 0.0, true, 1.0);
-    g_cvHintLookDist  = CreateConVar("sm_nadepractice_hint_look_distance", "300.0", "На каком расстоянии от глаз ставить метку «куда смотреть» (ближе, если мешает стена)", _, true, 32.0, true, 4000.0);
+    g_cvHintInterval  = CreateConVar("sm_nadepractice_hint_interval", "0.25", "Hint update period, seconds", _, true, 0.05, true, 2.0);
+    g_cvHintPosRadius = CreateConVar("sm_nadepractice_hint_pos_radius", "6.0", "Position tolerance, horizontal units", _, true, 1.0, true, 64.0);
+    g_cvHintAngleTol  = CreateConVar("sm_nadepractice_hint_angle_tolerance", "0.5", "Aim tolerance, degrees", _, true, 0.05, true, 10.0);
+    g_cvHintMode      = CreateConVar("sm_nadepractice_hint_mode", "0", "Hint output: 0 = KeyHintText (right panel), 1 = HintText, 2 = HUD text (colored)", _, true, 0.0, true, 2.0);
+    g_cvHintUnicode   = CreateConVar("sm_nadepractice_hint_unicode", "1", "Arrows in hints: 1 = unicode, 0 = ASCII", _, true, 0.0, true, 1.0);
+    g_cvHintLookDist  = CreateConVar("sm_nadepractice_hint_look_distance", "300.0", "Distance from the eyes of the aim marker (closer if a wall is in the way)", _, true, 32.0, true, 4000.0);
 
-    g_cvPrevDefault    = CreateConVar("sm_nadepractice_preview_default", "1", "Предпросмотр траектории включён у игрока по умолчанию", _, true, 0.0, true, 1.0);
-    g_cvPrevInterval   = CreateConVar("sm_nadepractice_preview_interval", "0.1", "Период обновления предпросмотра, с", _, true, 0.05, true, 1.0);
-    g_cvPrevMaxSeg     = CreateConVar("sm_nadepractice_preview_max_segments", "14", "Максимум отрезков линии предпросмотра", _, true, 4.0, true, 28.0);
-    g_cvSimMaxSteps    = CreateConVar("sm_nadepractice_sim_max_steps", "400", "Максимум шагов модели на один расчёт", _, true, 20.0, true, 2000.0);
-    g_cvSimMaxBounces  = CreateConVar("sm_nadepractice_sim_max_bounces", "20", "Максимум отскоков в модели", _, true, 1.0, true, 100.0);
-    g_cvSimTickMult    = CreateConVar("sm_nadepractice_sim_tick_mult", "1", "Шаг модели в тиках сервера (1 — точнее, больше — дешевле)", _, true, 1.0, true, 8.0);
-    g_cvSimStopSpeed   = CreateConVar("sm_nadepractice_sim_stop_speed", "30.0", "Скорость после отскока, ниже которой граната останавливается", _, true, 0.0, true, 200.0);
-    g_cvSimThrowMax    = CreateConVar("sm_nadepractice_sim_throw_speed_max", "750.0", "Максимальная начальная скорость броска", _, true, 100.0, true, 3000.0);
-    g_cvSimThrowFactor = CreateConVar("sm_nadepractice_sim_throw_speed_factor", "6.0", "Скорость броска = (90 - угол) * множитель", _, true, 0.1, true, 50.0);
-    g_cvSimPitchOffset = CreateConVar("sm_nadepractice_sim_throw_pitch_offset", "-10.0", "Подъём броска относительно взгляда в горизонт, градусов (отрицательное — вверх)", _, true, -45.0, true, 45.0);
-    g_cvSimForward     = CreateConVar("sm_nadepractice_sim_throw_forward", "16.0", "На сколько юнитов впереди глаз появляется снаряд", _, true, 0.0, true, 64.0);
-    g_cvSimHull        = CreateConVar("sm_nadepractice_sim_hull", "2.0", "Половина размера снаряда для проверки столкновений", _, true, 0.5, true, 16.0);
-    g_cvSimPlayerVel   = CreateConVar("sm_nadepractice_sim_player_velocity", "1.0", "Какая доля скорости игрока добавляется к броску", _, true, 0.0, true, 2.0);
+    g_cvPrevDefault    = CreateConVar("sm_nadepractice_preview_default", "1", "Trajectory preview is on for players by default", _, true, 0.0, true, 1.0);
+    g_cvPrevInterval   = CreateConVar("sm_nadepractice_preview_interval", "0.1", "Preview update period, seconds", _, true, 0.05, true, 1.0);
+    g_cvPrevMaxSeg     = CreateConVar("sm_nadepractice_preview_max_segments", "14", "Maximum segments of the preview line", _, true, 4.0, true, 28.0);
+    g_cvSimMaxSteps    = CreateConVar("sm_nadepractice_sim_max_steps", "400", "Maximum model steps per simulation", _, true, 20.0, true, 2000.0);
+    g_cvSimMaxBounces  = CreateConVar("sm_nadepractice_sim_max_bounces", "20", "Maximum bounces in the model", _, true, 1.0, true, 100.0);
+    g_cvSimTickMult    = CreateConVar("sm_nadepractice_sim_tick_mult", "1", "Model step in server ticks (1 = most accurate, more = cheaper)", _, true, 1.0, true, 8.0);
+    g_cvSimStopSpeed   = CreateConVar("sm_nadepractice_sim_stop_speed", "30.0", "Speed after a bounce below which the grenade stops", _, true, 0.0, true, 200.0);
+    g_cvSimThrowMax    = CreateConVar("sm_nadepractice_sim_throw_speed_max", "750.0", "Maximum initial throw speed", _, true, 100.0, true, 3000.0);
+    g_cvSimThrowFactor = CreateConVar("sm_nadepractice_sim_throw_speed_factor", "6.0", "Throw speed = (90 - angle) * factor", _, true, 0.1, true, 50.0);
+    g_cvSimPitchOffset = CreateConVar("sm_nadepractice_sim_throw_pitch_offset", "-10.0", "Throw pitch offset when looking at the horizon, degrees (negative = up)", _, true, -45.0, true, 45.0);
+    g_cvSimForward     = CreateConVar("sm_nadepractice_sim_throw_forward", "16.0", "How many units in front of the eyes the projectile appears", _, true, 0.0, true, 64.0);
+    g_cvSimHull        = CreateConVar("sm_nadepractice_sim_hull", "2.0", "Half size of the projectile for collision traces", _, true, 0.5, true, 16.0);
+    g_cvSimPlayerVel   = CreateConVar("sm_nadepractice_sim_player_velocity", "1.0", "Fraction of the player velocity added to the throw", _, true, 0.0, true, 2.0);
 
     AutoExecConfig(true, "nadepractice");
 
@@ -391,8 +391,8 @@ public void OnPluginStart() {
     g_SimPath = new ArrayList(4);
     BuildPath(Path_SM, g_DebugLogPath, sizeof(g_DebugLogPath), "logs/nadepractice_debug.log");
 
-    RegAdminCmd("sm_nadepractice_start", Command_Start, ADMFLAG_CHANGEMAP, "Запустить режим тренировки гранат");
-    RegAdminCmd("sm_nadepractice_stop", Command_Stop, ADMFLAG_CHANGEMAP, "Остановить режим тренировки гранат");
+    RegAdminCmd("sm_nadepractice_start", Command_Start, ADMFLAG_CHANGEMAP, "Start the grenade practice mode");
+    RegAdminCmd("sm_nadepractice_stop", Command_Stop, ADMFLAG_CHANGEMAP, "Stop the grenade practice mode");
 
     Practice_Init();
     Tracer_Init();
@@ -400,10 +400,10 @@ public void OnPluginStart() {
     Hints_Init();
     Preview_Init();
 
-    // Режим реагирует на события игры в Post (ARCHITECTURE.md, раздел 4).
+    // A mode reacts to game events in Post (ARCHITECTURE.md, section 4).
     HookEvent("player_spawn", Event_PlayerSpawn, EventHookMode_Post);
 
-    // Поздняя загрузка: обработать игроков и снаряды, которые уже на сервере.
+    // Late load: process players that are already on the server.
     if (g_bLateLoad) {
         PrecacheAssets();
         Lineups_Load();
@@ -416,7 +416,7 @@ public void OnPluginStart() {
 }
 
 public void OnAllPluginsLoaded() {
-    // Отчёт при загрузке (ARCHITECTURE.md, раздел 12).
+    // Load report (ARCHITECTURE.md, section 12).
     LogMessage("[nadepractice] %s, dependencies: none", PLUGIN_VERSION);
 }
 
@@ -473,7 +473,7 @@ public void OnGameFrame() {
         if (!IsClientInGame(client) || IsFakeClient(client)) {
             continue;
         }
-        // Порядок = приоритет в бюджете временных сущностей кадра.
+        // Order = priority in the per-frame temp entity budget.
         Preview_Frame(client, now);
         Hints_Frame(client, now);
         Tracer_DrawClient(client, now);
@@ -481,7 +481,7 @@ public void OnGameFrame() {
 }
 
 void PrecacheAssets() {
-    // CSS-VERIFY: эти материалы есть в CS:S и лучи/кольца/спрайты рисуются.
+    // CSS-VERIFY: these materials exist in CS:S and beams/rings/sprites are drawn.
     g_BeamSprite = PrecacheModel("materials/sprites/laser.vmt", true);
     g_HaloSprite = PrecacheModel("materials/sprites/halo01.vmt", true);
     g_GlowSprite = PrecacheModel("materials/sprites/glow01.vmt", true);
@@ -508,7 +508,7 @@ void ResetClientState(int client) {
     Preview_ResetClient(client);
 }
 
-// Состояние не должно переживать смену карты.
+// State must not survive a map change.
 void ResetAllState() {
     for (int client = 1; client <= MaxClients; client++) {
         ResetClientState(client);
@@ -524,7 +524,7 @@ void ResetAllState() {
 }
 
 // ---------------------------------------------------------------------------
-// Режим: запуск и остановка
+// Mode start and stop
 // ---------------------------------------------------------------------------
 
 bool Mode_Start() {
@@ -533,8 +533,8 @@ bool Mode_Start() {
     }
     g_bActive = true;
 
-    // Временные квары режима. Все восстанавливаются в Mode_Stop.
-    // CSS-VERIFY: каждый из этих кваров существует в CS:S и действует как описано в README.
+    // Temporary cvars of the mode. All of them are restored in Mode_Stop.
+    // CSS-VERIFY: each of these cvars exists in CS:S and works as described in the README.
     SetCvarTemporarily("mp_freezetime", "0");
     SetCvarTemporarily("mp_roundtime", "9");
     SetCvarTemporarily("mp_ignore_round_win_conditions", "1");
@@ -557,7 +557,7 @@ bool Mode_Start() {
     }
 
     if (g_cvRestartOnStart.BoolValue) {
-        // mp_restartgame — одноразовая команда-квар, сама возвращается в 0; не запоминаем.
+        // mp_restartgame is a one-shot cvar that resets itself to 0; not saved.
         ConVar restart = FindConVar("mp_restartgame");
         if (restart != null) {
             restart.SetInt(1);
@@ -568,7 +568,7 @@ bool Mode_Start() {
     return true;
 }
 
-// announce = false — тихая остановка (смена карты, выгрузка).
+// announce = false: silent stop (map change, unload).
 void Mode_Stop(bool announce) {
     if (!g_bActive) {
         return;
@@ -620,7 +620,7 @@ public void Event_PlayerSpawn(Event event, const char[] name, bool dontBroadcast
     if (!g_bActive) {
         return;
     }
-    // Выдача в следующий момент после появления: к этому времени игра уже раздала своё.
+    // Equip a moment after the spawn: by then the game has handed out its own items.
     CreateTimer(0.1, Timer_Equip, event.GetInt("userid"), TIMER_FLAG_NO_MAPCHANGE);
 }
 
@@ -633,7 +633,7 @@ public Action Timer_Equip(Handle timer, int userid) {
 }
 
 // ---------------------------------------------------------------------------
-// Нативы
+// Natives
 // ---------------------------------------------------------------------------
 
 public int Native_IsActive(Handle plugin, int numParams) {

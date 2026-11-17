@@ -1,22 +1,22 @@
 /*
- * lineups.sp — база лайнапов: файл на карту (KeyValues), команды и меню.
+ * lineups.sp - lineup database: one KeyValues file per map, commands and menus.
  *
- * Файл: addons/sourcemod/configs/nadepractice/lineups/<map>.cfg
- * Формат описан в README. Лайнап создаётся из последнего броска игрока.
+ * File: addons/sourcemod/configs/nadepractice/lineups/<map>.cfg
+ * The format is described in the README. A lineup is made from the player's last throw.
  */
 
 void Lineups_Init() {
-    RegConsoleCmd("sm_save", Command_Save, "!save <имя> — сохранить последний бросок как лайнап");
-    RegConsoleCmd("sm_lineups", Command_Lineups, "Меню лайнапов");
-    RegConsoleCmd("sm_goto", Command_Goto, "!goto <имя> — телепорт к лайнапу и выбор его для подсказок");
-    RegConsoleCmd("sm_show", Command_Show, "!show <имя> — повторить бросок лайнапа");
-    RegConsoleCmd("sm_delete", Command_Delete, "!delete [имя] — удалить лайнап (без имени — выбранный)");
-    RegConsoleCmd("sm_rename", Command_Rename, "!rename <новое имя> — переименовать выбранный лайнап");
-    RegConsoleCmd("sm_desc", Command_Desc, "!desc <текст> — описание выбранного лайнапа");
+    RegConsoleCmd("sm_save", Command_Save, "!save <name> - save the last throw as a lineup");
+    RegConsoleCmd("sm_lineups", Command_Lineups, "Lineup menu");
+    RegConsoleCmd("sm_goto", Command_Goto, "!goto <name> - teleport to a lineup and select it for hints");
+    RegConsoleCmd("sm_show", Command_Show, "!show <name> - replay the lineup throw");
+    RegConsoleCmd("sm_delete", Command_Delete, "!delete [name] - delete a lineup (the selected one without a name)");
+    RegConsoleCmd("sm_rename", Command_Rename, "!rename <new name> - rename the selected lineup");
+    RegConsoleCmd("sm_desc", Command_Desc, "!desc <text> - description of the selected lineup");
 }
 
 // ---------------------------------------------------------------------------
-// Файл
+// File
 // ---------------------------------------------------------------------------
 
 void Lineups_Load() {
@@ -168,7 +168,7 @@ bool Lineups_Save() {
 }
 
 // ---------------------------------------------------------------------------
-// Поиск и права
+// Lookup and access
 // ---------------------------------------------------------------------------
 
 int Lineups_IndexById(int id) {
@@ -185,8 +185,8 @@ int Lineups_IndexById(int id) {
     return -1;
 }
 
-// Точное совпадение имени (без учёта регистра), иначе — единственное совпадение по части имени.
-// Возвращает индекс, -1 (не найдено) или -2 (подходит несколько).
+// Exact name match (case-insensitive), otherwise the only partial match.
+// Returns the index, -1 (not found) or -2 (several match).
 int Lineups_IndexByName(const char[] name) {
     int partial = -1;
     int partialCount = 0;
@@ -207,7 +207,7 @@ int Lineups_IndexByName(const char[] name) {
     return (partialCount == 0) ? -1 : -2;
 }
 
-// Лайнап из аргумента команды или выбранный. Сам сообщает игроку об ошибке.
+// Lineup from the command argument, or the selected one. Tells the player about errors itself.
 int Lineups_Resolve(int client, int args) {
     if (args < 1) {
         int index = Lineups_IndexById(g_SelectedLineup[client]);
@@ -231,8 +231,8 @@ int Lineups_Resolve(int client, int args) {
 }
 
 bool Lineups_CanEdit(int client, bool tell = true) {
-    // sm_nadepractice_edit_access 1: только админы (флаг generic; переопределяется
-    // через admin_overrides для «sm_nadepractice_edit»).
+    // sm_nadepractice_edit_access 1: admins only (generic flag; can be overridden
+    // through admin_overrides for "sm_nadepractice_edit").
     if (g_cvEditAccess.IntValue == 0 || CheckCommandAccess(client, "sm_nadepractice_edit", ADMFLAG_GENERIC)) {
         return true;
     }
@@ -243,7 +243,7 @@ bool Lineups_CanEdit(int client, bool tell = true) {
 }
 
 // ---------------------------------------------------------------------------
-// Действия
+// Actions
 // ---------------------------------------------------------------------------
 
 void Lineups_Goto(int client, int index) {
@@ -307,7 +307,7 @@ void Lineups_Delete(int client, int index) {
 }
 
 // ---------------------------------------------------------------------------
-// Команды
+// Commands
 // ---------------------------------------------------------------------------
 
 public Action Command_Save(int client, int args) {
@@ -478,7 +478,7 @@ public Action Command_Desc(int client, int args) {
 }
 
 // ---------------------------------------------------------------------------
-// Меню
+// Menus
 // ---------------------------------------------------------------------------
 
 int Lineups_CountByNade(int nade) {
@@ -528,7 +528,7 @@ public int MenuHandler_LineupsMain(Menu menu, MenuAction action, int client, int
     return 0;
 }
 
-// Список лайнапов, ближайшие к игроку — первыми.
+// Lineup list, nearest to the player first.
 void Lineups_ShowListMenu(int client) {
     int filter = g_MenuFilter[client];
     float origin[3], spot[3];
