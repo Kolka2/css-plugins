@@ -69,6 +69,9 @@ public Plugin myinfo = {
 #define MAX_TRAJ_POINTS  256    // points in one recorded trajectory
 #define RUN_SPEED        60.0   // horizontal speed above which a throw counts as "running"
 
+// Chat prefix: brackets in the default color, the plugin name in green (CLAUDE.md).
+#define CHAT_PREFIX "\x01[\x04NadePractice\x01] "
+
 char g_NadeWeapon[NADE_COUNT][] = { "weapon_hegrenade", "weapon_flashbang", "weapon_smokegrenade" };
 char g_NadeProjectile[NADE_COUNT][] = { "hegrenade_projectile", "flashbang_projectile", "smokegrenade_projectile" };
 char g_NadeKey[NADE_COUNT][] = { "he", "flash", "smoke" };
@@ -221,6 +224,7 @@ ConVar g_cvSimPlayerVel;
 ConVar g_cvGravity;     // sv_gravity (read only)
 
 StringMap g_SavedCvars;
+StringMap g_MissingPhrases;     // phrases already reported as missing
 char g_DebugLogPath[PLATFORM_MAX_PATH];
 
 bool g_bActive;
@@ -384,6 +388,7 @@ public void OnPluginStart() {
     g_cvEnabled.AddChangeHook(OnEnabledChanged);
 
     g_SavedCvars = new StringMap();
+    g_MissingPhrases = new StringMap();
     g_ReplayEnts = new ArrayList(sizeof(ReplayEnt));
     g_ReplayEffects = new ArrayList();
     g_Tracked = new ArrayList(sizeof(Tracked));
@@ -564,7 +569,7 @@ bool Mode_Start() {
         }
     }
 
-    PrintToChatAll("\x04[NadePractice]\x01 %t", "Mode Started");
+    PrintToChatAll(CHAT_PREFIX ... "%t", "Mode Started");
     return true;
 }
 
@@ -588,7 +593,7 @@ void Mode_Stop(bool announce) {
     LogDebug("mode stop (announce=%d)", announce);
 
     if (announce) {
-        PrintToChatAll("\x04[NadePractice]\x01 %t", "Mode Stopped");
+        PrintToChatAll(CHAT_PREFIX ... "%t", "Mode Stopped");
     }
 }
 

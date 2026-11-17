@@ -101,7 +101,21 @@ void NP_Print(int client, const char[] format, any ...) {
     char buffer[240];
     SetGlobalTransTarget(client);
     VFormat(buffer, sizeof(buffer), format, 3);
-    PrintToChat(client, "\x04[NadePractice]\x01 %s", buffer);
+    PrintToChat(client, CHAT_PREFIX ... "%s", buffer);
+}
+
+// Whether a phrase exists. A missing phrase is logged once. Check before formatting
+// in frequent handlers: a translation error there aborts the handler and floods the log.
+bool PhraseExists(const char[] phrase) {
+    if (TranslationPhraseExists(phrase)) {
+        return true;
+    }
+    int dummy;
+    if (!g_MissingPhrases.GetValue(phrase, dummy)) {
+        g_MissingPhrases.SetValue(phrase, 1);
+        LogError("[nadepractice] Phrase \"%s\" not found: install translations/nadepractice.phrases.txt (and ru/)", phrase);
+    }
+    return false;
 }
 
 // Translated grenade and throw type names to be inserted into other phrases.

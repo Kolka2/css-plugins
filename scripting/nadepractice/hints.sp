@@ -166,6 +166,13 @@ void Hints_Frame(int client, float now) {
     Lineup lineup;
     g_Lineups.GetArray(index, lineup);
 
+    // Called several times a second: check every phrase before formatting.
+    if (!PhraseExists("Hint Position") || !PhraseExists("Hint Aim") || !PhraseExists("Hint Throw")
+        || !PhraseExists("Hint Ready") || !PhraseExists(g_NadePhrase[lineup.nade])
+        || !PhraseExists(g_ThrowPhrase[lineup.throwType])) {
+        return;
+    }
+
     float origin[3], angles[3], ground[3];
     GetClientAbsOrigin(client, origin);
     GetClientEyeAngles(client, angles);

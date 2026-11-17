@@ -295,7 +295,8 @@ void Preview_OnLanded(int client, int nade, const float predicted[3], const floa
     LogDebug("prediction error: %N nade=%s error=%.1f predicted=(%.1f %.1f %.1f) actual=(%.1f %.1f %.1f)",
         client, g_NadeKey[nade], error, predicted[0], predicted[1], predicted[2], actual[0], actual[1], actual[2]);
 
-    if (g_bPreview[client]) {
+    // Called from OnGameFrame (tracer): check the phrase first.
+    if (g_bPreview[client] && PhraseExists("Prediction Error")) {
         NP_Print(client, "%t", "Prediction Error", error);
     }
 }
