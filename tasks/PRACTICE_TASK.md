@@ -274,7 +274,23 @@ start = позиция глаз + dir * 16       // глаза: +64 стоя, +4
 
 **14.2. Настоящая детонация снарядов повтора.** Сейчас HE и флешку повтора «взрывает» плагин: флешка не слепит, взрыв — только картинка. Через SDKCall статических `CHEGrenadeProjectile::Create`, `CFlashbangProjectile::Create`, `CSmokeGrenadeProjectile::Create` (позиция, углы, скорость, угловая скорость, владелец, таймер у HE и флешки) игра сама выставит таймер, и снаряд взорвётся по-настоящему: флешка ослепит (`!noflash` продолжает работать), HE взорвётся (урон блокирует `Practice_OnTakeDamage`), дым будет настоящим (и к нему применится 14.1). Запасной вариант при сломанной gamedata — текущая детонация плагином. Видимость снарядов повтора только владельцу (`SetTransmit`) сохранить; что настоящий взрыв и ослепление действуют на всех игроков рядом, — в README.
 
-**Обе ОС.** Gamedata делать сразу под Windows и Linux (64-бит): секции `windows` и `linux` в `nadepractice.games.txt`, ориентиры для поиска в `GAMEDATA.md` — для обеих. Владелец даст `cstrike/bin/server.dll` (у него сервер на Windows) и `cstrike/bin/server.so` (обновление февраля 2025, 64-бит); положить их в scratchpad или `logs/` (вне git), в репозиторий бинарники не добавлять. Если какого-то бинарника к началу 14.2 нет — код и `GAMEDATA.md` пишутся, подписи этой ОС остаются пустыми (функции честно выключены), и это записывается в `PROGRESS.md` как следующий шаг.
+**Четыре сборки сервера.** После обновления 2025 года сервер CS:S бывает 32- и 64-битным, и у каждого свой бинарник: адреса, смещения и размер указателей разные. Владелец сейчас играет на **32-битном Windows** (`srcds.exe`; так же показала gamedata `retakes_bothelper` в `Kolka2/css-retakes`). Gamedata нужна для всех четырёх, ключи SourceMod:
+
+| Ключ | Сервер | Файл владельца (в `tools/`, вне git) | Путь на сервере |
+|---|---|---|---|
+| `windows` | Windows, 32 бита (`srcds.exe`) | `tools/server.dll` | `cstrike/bin/server.dll` |
+| `windows64` | Windows, 64 бита (`srcds_win64.exe`) | `tools/server_x64.dll` (переименован) | `cstrike/bin/x64/server.dll` |
+| `linux` | Linux, 32 бита | `tools/server_srv.so` | `cstrike/bin/server_srv.so` |
+| `linux64` | Linux, 64 бита | `tools/server_srv_x64.so` (переименован) | `cstrike/bin/linux64/server_srv.so` — путь уточнить у владельца |
+
+Бинарники в репозиторий не добавлять (`tools/` в `.gitignore`). В шапке `nadepractice.games.txt` записать версию игры (`PatchVersion` из `cstrike/steam.inf` — спросить у владельца), как в `retakes_bothelper.games.txt`.
+
+Что уже проверено по этим файлам (при подготовке задания):
+- **Linux, обе сборки — с символами** (`not stripped`), поэтому там подписи не нужны, хватит имён: `@_ZN20CHEGrenadeProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacterf` (у HE последний параметр — таймер), `@_ZN20CFlashbangProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacter`, `@_ZN23CSmokeGrenadeProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacter` (у флешки и дыма таймера нет). Есть и `ParticleSmokeGrenade::SetFadeTime(float, float)` (`_ZN20ParticleSmokeGrenade11SetFadeTimeEff`) — удобная точка для 14.1, если без gamedata не выйдет, — и `CBaseCSGrenadeProjectile::SetDetonateTimerLength(float)`. Символы локальные (`t` в `nm`): `CSS-VERIFY`, что SourceMod находит их по `@имя`; если нет — подпись, как на Windows.
+- **Windows, обе сборки — без символов**: нужны байтовые подписи. Ориентиры для поиска есть в обеих DLL: строки `hegrenade_projectile`, `flashbang_projectile`, `smokegrenade_projectile` (на них ссылаются функции `Create`), `BaseSmokeEffect.Sound` (срабатывание дыма), `Flashbang.Explode`, `env_particlesmokegrenade`. Функцию на Windows удобно находить, сравнивая с той же функцией в Linux-сборке той же разрядности (с символами): та же последовательность вызовов и констант. Это же записать в `GAMEDATA.md` как способ восстановления.
+- **64 бита и `SDKCall`:** в `PORTING.md` порта Retakes записано, что в SourceMod 1.12 на 64-битном сервере адреса — 32-битные «псевдоадреса», и сырой указатель в вызов не передать. Вызовам `Create` сырые указатели не нужны (векторы по ссылке, владелец — сущность, результат — сущность), но `CSS-VERIFY` на 64-битных сборках обязателен; если не работает — функция на 64 битах честно выключается, 32 бита работают.
+
+Если какой-то из четырёх вариантов сделать не удалось — подписи этой сборки остаются пустыми (функции на ней честно выключены), и это записывается в `PROGRESS.md` как следующий шаг. Проверка на сервере — сначала на 32-битном Windows (основной сервер владельца).
 
 ### Этап 15. Документация и чек-лист
 
