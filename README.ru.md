@@ -20,6 +20,7 @@ SourceMod-плагины для Counter-Strike: Source.
 |---|---|---|---|
 | `nadethrow` | Броски гранат, как в CS:GO: ЛКМ, ЛКМ + ПКМ и ПКМ дают броски разной силы. Есть API для других плагинов. | Готов. Основная механика проверена на сервере, остальной чек-лист ждёт проверки. | [README](docs/nadethrow/README.md), [чек-лист](docs/nadethrow/TEST_CHECKLIST.md) |
 | `teammoney` | Во время фризтайма показывает каждому игроку деньги, гранаты и наборы сапёра его команды. | Готов, ждёт проверки на сервере. | [README](docs/teammoney/README.md), [чек-лист](docs/teammoney/TEST_CHECKLIST.md) |
+| `warmup` | Разминка для CS:S, в которой её нет: бесконечный раунд, респаун, $16000 и открытая закупка, без бомбы. Режимы управляют ею через API; работает и сама по себе. Перенесена из [css-retakes](https://github.com/Kolka2/css-retakes). | Готов. Проверен на сервере вместе с Retakes. | [README](docs/warmup/README.md), [чек-лист](docs/warmup/TEST_CHECKLIST.md) |
 
 В планах: режим тренировки гранат (`nadepractice`), сохранённые раскидки и выходы (`lineups`, `executes`), управление ботами и более осмысленные боты (`botcontrol`, `botassist`, `botnav`).
 

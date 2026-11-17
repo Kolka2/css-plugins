@@ -48,6 +48,7 @@
 |---|---|---|
 | `teammoney` | утилита | готов, ждёт проверки на сервере (`docs/teammoney/README.md`, `docs/teammoney/TEST_CHECKLIST.md`) |
 | `nadethrow` | сервис | готов, ждёт проверки на сервере (`docs/nadethrow/README.md`, `docs/nadethrow/TEST_CHECKLIST.md`) |
+| `warmup` | сервис | готов, проверен на сервере вместе с Retakes (версия 1.0.0); перенесён из `Kolka2/css-retakes`, там лежит копия `warmup.inc` — при изменении API обновлять и её (`docs/warmup/`) |
 | `nadepractice` | режим | задание `tasks/PRACTICE_TASK.md` |
 | `lineups`, `botcontrol`, `executes` | сервисы, режим | черновик `tasks/EXECUTES_TASK.md` |
 | `botassist`, `botnav` | утилита, сервис | черновик `tasks/BOTS_TASK.md` |

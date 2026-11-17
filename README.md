@@ -20,6 +20,7 @@ Only CS:S is supported.
 |---|---|---|---|
 | `nadethrow` | CS:GO-style grenade throws: left click, left + right click and right click give throws of different strength. Has an API for other plugins. | Complete. Core mechanic tested on a server, the rest of the checklist is pending. | [README](docs/nadethrow/README.md), [checklist](docs/nadethrow/TEST_CHECKLIST.md) |
 | `teammoney` | Shows each player the money, grenades and defuse kits of their team during freeze time. | Complete, awaiting verification on a server. | [README](docs/teammoney/README.md), [checklist](docs/teammoney/TEST_CHECKLIST.md) |
+| `warmup` | A warmup for CS:S, which has none built in: endless round, respawn, $16000 and open buying, no bomb. Game modes drive it through an API; also works on its own. Moved from [css-retakes](https://github.com/Kolka2/css-retakes). | Complete. Tested on a server together with Retakes. | [README](docs/warmup/README.md), [checklist](docs/warmup/TEST_CHECKLIST.md) |
 
 Planned: a grenade practice mode (`nadepractice`), saved lineups and executes (`lineups`, `executes`), bot control and smarter bots (`botcontrol`, `botassist`, `botnav`).
 
