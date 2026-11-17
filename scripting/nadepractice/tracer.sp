@@ -3,11 +3,14 @@
  * detonation marks, trajectories drawn for their owner only.
  *
  * Temp beams live for a limited time, so saved trajectories are redrawn in cycles.
- * To stay within the per-frame temp entity limit, a cycle is spread over time:
- * one pass sends no more than the budget (TE_Take), the rest goes in later passes.
+ * A cycle is spread over time at a steady pace: every frame the tracer sends what is
+ * left of the update budget after a reserve for the preview and the hints of the same
+ * client, so those never starve it and the pace does not jump. Every segment is then
+ * redrawn one period after its previous copy, and a copy lives the period plus a small
+ * overlap: long enough not to leave gaps, short enough not to pulse in brightness.
  */
 
-#define TRACER_DRAW_TICK 0.1    // drawing pass step, seconds
+#define TRACER_OVERLAP 0.2      // how much longer than the cycle period a beam lives, seconds
 
 void Tracer_Init() {
     RegConsoleCmd("sm_clear", Command_Clear, "Clear your trajectories");
@@ -26,7 +29,6 @@ void Tracer_ResetClient(int client) {
     Tracer_ClearClient(client);
     g_bTracer[client] = true;
     g_TrajNext[client] = 0;
-    g_NextDraw[client] = 0.0;
 }
 
 // Clears the player's trajectories. Beams already sent live out their time (a couple of seconds).
@@ -392,12 +394,26 @@ int Tracer_CountSegments(int client, int maxSeg) {
     return total;
 }
 
+// Temp entities kept free in every update window for the preview and the hints of this client.
+int Tracer_Reserve(int client) {
+    int reserve = 0;
+    if (g_bPreview[client] && GetActiveNade(client) != NADE_NONE) {
+        reserve += g_cvPrevMaxSeg.IntValue + 1;
+    }
+    if (g_bHints[client] && g_SelectedLineup[client] != 0) {
+        reserve += 8;       // aim marker (4) + rings
+    }
+    int budget = g_cvTeBudget.IntValue;
+    return (reserve > budget - 2) ? budget - 2 : reserve;
+}
+
+// Called every frame. Sends at most what the budget allows beyond the reserve.
 void Tracer_DrawClient(int client, float now) {
-    if (now < g_NextDraw[client]) {
+    if (!g_bTracer[client]) {
         return;
     }
-    g_NextDraw[client] = now + TRACER_DRAW_TICK;
-    if (!g_bTracer[client]) {
+    int reserve = Tracer_Reserve(client);
+    if (TE_Left(client) <= reserve) {
         return;
     }
 
@@ -412,13 +428,15 @@ void Tracer_DrawClient(int client, float now) {
             g_DrawNextCycle[client] = now + 0.5;
             return;
         }
-        // A cycle is no shorter than the cvar and than the time the budget needs for all segments.
-        float need = float(total) / float(g_cvTeBudget.IntValue) * TRACER_DRAW_TICK + 0.2;
+        // A cycle is no shorter than the cvar and than the time the budget beyond the reserve
+        // needs for all segments (marks included).
+        float perSecond = float(g_cvTeBudget.IntValue - reserve) / TE_UpdateInterval(client);
+        float need = float(total) / perSecond + 0.2;
         float period = g_cvTraceRedraw.FloatValue;
         if (period < need) {
             period = need;
         }
-        g_DrawLife[client] = period + 0.3;
+        g_DrawLife[client] = period + TRACER_OVERLAP;
         if (g_DrawLife[client] > 25.0) {
             g_DrawLife[client] = 25.0;  // temp beam lifetime limit
         }
@@ -433,6 +451,9 @@ void Tracer_DrawClient(int client, float now) {
     int guard = 0;
 
     while (g_DrawSlot[client] < MAX_TRAJ && guard++ < MAX_TRAJ * MAX_TRAJ_POINTS) {
+        if (TE_Left(client) <= reserve) {
+            return;     // the rest of this window is kept for the preview and the hints
+        }
         int slot = g_DrawSlot[client];
         ArrayList points = g_TrajPoints[client][slot];
         if (points == null || g_DrawIdx[client] >= points.Length - 1) {

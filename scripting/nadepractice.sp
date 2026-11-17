@@ -251,8 +251,12 @@ int g_GlowSprite = -1;
 int g_ExplosionSprite = -1;
 
 // temp entity budget per frame
-int g_TeTick[MAXPLAYERS + 1];
+float g_TeWindowEnd[MAXPLAYERS + 1];    // end of the current update window of the client
+float g_TeInterval[MAXPLAYERS + 1];     // client update interval (1 / cl_updaterate), cached
+float g_TeRateCheck[MAXPLAYERS + 1];    // when to read cl_updaterate again
 int g_TeLeft[MAXPLAYERS + 1];
+ConVar g_cvMinUpdateRate;               // sv_minupdaterate (read only)
+ConVar g_cvMaxUpdateRate;               // sv_maxupdaterate (read only)
 
 // player state
 int g_NoclipCmdFlags = -1;      // original flags of the "noclip" command while the mode runs, -1 = untouched
@@ -287,7 +291,6 @@ int g_DrawSlot[MAXPLAYERS + 1];
 int g_DrawIdx[MAXPLAYERS + 1];
 float g_DrawLife[MAXPLAYERS + 1];
 float g_DrawNextCycle[MAXPLAYERS + 1];
-float g_NextDraw[MAXPLAYERS + 1];
 
 // lineups
 ArrayList g_Lineups;
@@ -354,7 +357,7 @@ public void OnPluginStart() {
     g_cvDebug          = CreateConVar("sm_nadepractice_debug", "0", "Verbose log in logs/nadepractice_debug.log", _, true, 0.0, true, 1.0);
     g_cvAutostart      = CreateConVar("sm_nadepractice_autostart", "0", "Start the mode automatically on every map", _, true, 0.0, true, 1.0);
     g_cvRestartOnStart = CreateConVar("sm_nadepractice_restart_on_start", "1", "Restart the round when the mode starts (mp_restartgame 1) so round cvars apply at once", _, true, 0.0, true, 1.0);
-    g_cvTeBudget       = CreateConVar("sm_nadepractice_te_per_frame", "24", "How many temp entities (beams, rings, sprites) may be sent to one player per frame", _, true, 4.0, true, 31.0);
+    g_cvTeBudget       = CreateConVar("sm_nadepractice_te_per_frame", "24", "How many temp entities (beams, rings, sprites) may be sent to one player per network update (sv_multiplayer_maxtempentities is 32)", _, true, 4.0, true, 31.0);
 
     g_cvInfinite      = CreateConVar("sm_nadepractice_infinite", "1", "Infinite grenades: the same grenade is given back after a throw", _, true, 0.0, true, 1.0);
     g_cvGiveOnSpawn   = CreateConVar("sm_nadepractice_give_on_spawn", "1", "Give HE, flashbang and smoke on spawn", _, true, 0.0, true, 1.0);
@@ -414,6 +417,8 @@ public void OnPluginStart() {
     AutoExecConfig(true, "nadepractice");
 
     g_cvGravity = FindConVar("sv_gravity");
+    g_cvMinUpdateRate = FindConVar("sv_minupdaterate");
+    g_cvMaxUpdateRate = FindConVar("sv_maxupdaterate");
     g_cvEnabled.AddChangeHook(OnEnabledChanged);
 
     g_SavedCvars = new StringMap();
@@ -533,7 +538,9 @@ void ResetClientState(int client) {
     g_PendingThrowRef[client] = 0;
     g_NextReplay[client] = 0.0;
     g_bHasDeathPos[client] = false;
-    g_TeTick[client] = 0;
+    g_TeWindowEnd[client] = 0.0;
+    g_TeRateCheck[client] = 0.0;
+    g_TeInterval[client] = 0.0;
     g_TeLeft[client] = 0;
     g_MenuFilter[client] = NADE_NONE;
     g_MenuLineup[client] = 0;

@@ -225,17 +225,53 @@ bool GetEntityVelocity(int entity, float velocity[3]) {
 }
 
 // ---------------------------------------------------------------------------
-// Drawing. Everything is sent to one player and goes through the per-frame budget:
-// the engine drops temp entities above its limit (sv_multiplayer_maxtempentities, 32).
+// Drawing. Everything is sent to one player and goes through a budget per network update:
+// the engine drops temp entities above its limit (sv_multiplayer_maxtempentities, 32) in one
+// update packet. A client with cl_updaterate below the tick rate gets several ticks in one
+// packet, so the budget covers one update interval, not one tick.
+// CSS-VERIFY: with cl_updaterate 20 and 10 trajectories no segments go missing.
 // ---------------------------------------------------------------------------
 
-bool TE_Take(int client) {
-    int tick = GetGameTickCount();
-    if (g_TeTick[client] != tick) {
-        g_TeTick[client] = tick;
+// Update interval of the client: 1 / cl_updaterate clamped by sv_min/maxupdaterate, at least
+// one tick. Read again once a second.
+float TE_UpdateInterval(int client) {
+    float now = GetGameTime();
+    if (now >= g_TeRateCheck[client] || g_TeInterval[client] <= 0.0) {
+        g_TeRateCheck[client] = now + 1.0;
+        float tick = GetTickInterval();
+        float rate = 1.0 / tick;
+        char buffer[16];
+        if (!IsFakeClient(client) && GetClientInfo(client, "cl_updaterate", buffer, sizeof(buffer))) {
+            float value = StringToFloat(buffer);
+            if (value > 0.0) {
+                rate = value;
+            }
+        }
+        if (g_cvMaxUpdateRate != null && g_cvMaxUpdateRate.FloatValue > 0.0 && rate > g_cvMaxUpdateRate.FloatValue) {
+            rate = g_cvMaxUpdateRate.FloatValue;
+        }
+        if (g_cvMinUpdateRate != null && rate < g_cvMinUpdateRate.FloatValue) {
+            rate = g_cvMinUpdateRate.FloatValue;
+        }
+        float interval = (rate > 0.0) ? 1.0 / rate : tick;
+        g_TeInterval[client] = (interval < tick) ? tick : interval;
+    }
+    return g_TeInterval[client];
+}
+
+// Temp entities the client can still get in the current update window.
+int TE_Left(int client) {
+    float now = GetGameTime();
+    if (now >= g_TeWindowEnd[client]) {
+        // Half a tick early, so timing jitter never merges two windows into one.
+        g_TeWindowEnd[client] = now + TE_UpdateInterval(client) - GetTickInterval() * 0.5;
         g_TeLeft[client] = g_cvTeBudget.IntValue;
     }
-    if (g_TeLeft[client] <= 0) {
+    return g_TeLeft[client];
+}
+
+bool TE_Take(int client) {
+    if (TE_Left(client) <= 0) {
         return false;
     }
     g_TeLeft[client]--;
