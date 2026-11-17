@@ -128,6 +128,8 @@ public int MenuHandler_Admin(Menu menu, MenuAction action, int client, int item)
         ConVar cheats = FindConVar("sv_cheats");
         if (g_bActive && cheats != null) {
             bool on = !cheats.BoolValue;
+            // CSS-VERIFY: sv_cheats set from the menu returns to its previous value when the mode stops,
+            // and the console noclip still goes through the plugin.
             SetCvarTemporarily("sv_cheats", on ? "1" : "0");     // restored when the mode stops
             Admin_Announce(client, "Admin Cheats", on);
         }
