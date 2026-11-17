@@ -281,9 +281,9 @@ start = позиция глаз + dir * 16       // глаза: +64 стоя, +4
 | `windows` | Windows, 32 бита (`srcds.exe`) | `tools/server.dll` | `cstrike/bin/server.dll` |
 | `windows64` | Windows, 64 бита (`srcds_win64.exe`) | `tools/server_x64.dll` (переименован) | `cstrike/bin/x64/server.dll` |
 | `linux` | Linux, 32 бита | `tools/server_srv.so` | `cstrike/bin/server_srv.so` |
-| `linux64` | Linux, 64 бита | `tools/server_srv_x64.so` (переименован) | `cstrike/bin/linux64/server_srv.so` — путь уточнить у владельца |
+| `linux64` | Linux, 64 бита | `tools/server_srv_x64.so` (переименован) | `cstrike/bin/linux64/server_srv.so` |
 
-Бинарники в репозиторий не добавлять (`tools/` в `.gitignore`). В шапке `nadepractice.games.txt` записать версию игры (`PatchVersion` из `cstrike/steam.inf` — спросить у владельца), как в `retakes_bothelper.games.txt`.
+Бинарники в репозиторий не добавлять (`tools/` в `.gitignore`). В шапке `nadepractice.games.txt` записать версию игры: `PatchVersion=11003710` (`cstrike/steam.inf`; та же версия, под которую сделана `retakes_bothelper.games.txt`). Если на сервере версия уже другая — сначала сверить подписи.
 
 Что уже проверено по этим файлам (при подготовке задания):
 - **Linux, обе сборки — с символами** (`not stripped`), поэтому там подписи не нужны, хватит имён: `@_ZN20CHEGrenadeProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacterf` (у HE последний параметр — таймер), `@_ZN20CFlashbangProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacter`, `@_ZN23CSmokeGrenadeProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacter` (у флешки и дыма таймера нет). Есть и `ParticleSmokeGrenade::SetFadeTime(float, float)` (`_ZN20ParticleSmokeGrenade11SetFadeTimeEff`) — удобная точка для 14.1, если без gamedata не выйдет, — и `CBaseCSGrenadeProjectile::SetDetonateTimerLength(float)`. Символы локальные (`t` в `nm`): `CSS-VERIFY`, что SourceMod находит их по `@имя`; если нет — подпись, как на Windows.
