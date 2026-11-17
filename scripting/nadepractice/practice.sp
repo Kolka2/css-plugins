@@ -527,6 +527,13 @@ void Menu_AddToggle(Menu menu, int client, const char[] info, const char[] phras
     menu.AddItem(info, text);
 }
 
+// Menu item "<name>: <current choice>".
+void Menu_AddChoice(Menu menu, int client, const char[] info, const char[] phrase, const char[] choicePhrase) {
+    char text[96];
+    FormatEx(text, sizeof(text), "%T: %T", phrase, client, choicePhrase, client);
+    menu.AddItem(info, text);
+}
+
 void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu menu = new Menu(MenuHandler_Practice);
     menu.SetTitle("%T", "Menu Title", client);
@@ -539,6 +546,7 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_AddToggle(menu, client, "tracer", "Menu Tracer", g_bTracer[client]);
     Menu_AddToggle(menu, client, "preview", "Menu Preview", g_bPreview[client]);
     Menu_AddToggle(menu, client, "hints", "Menu Hints", g_bHints[client]);
+    Menu_AddChoice(menu, client, "marker", "Menu Marker", g_MarkerPhrase[g_HintMarkerStyle[client]]);
     Menu_AddToggle(menu, client, "noflash", "Menu Noflash", g_bNoFlash[client]);
     Menu_AddPhrase(menu, client, "hands", "Menu Hands");
     Menu_AddPhrase(menu, client, "preverror", "Menu PrevError");
@@ -581,6 +589,8 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
         g_bPreview[client] = !g_bPreview[client];
     } else if (StrEqual(info, "hints")) {
         Hints_Toggle(client);
+    } else if (StrEqual(info, "marker")) {
+        Hints_CycleMarker(client);
     } else if (StrEqual(info, "noflash")) {
         g_bNoFlash[client] = !g_bNoFlash[client];
     } else if (StrEqual(info, "hands")) {

@@ -4,7 +4,7 @@
  * deviation. Everything is visible to the player only.
  */
 
-#define HINT_DRAW_PERIOD 1.0    // how often the rings and the marker are redrawn, seconds
+#define HINT_DRAW_PERIOD 1.0    // how often the rings are redrawn, seconds
 
 char g_ArrowsUnicode[8][] = { "↑", "↖", "←", "↙", "↓", "↘", "→", "↗" };
 char g_ArrowsAscii[8][] = { "^", "<^", "<", "<v", "v", "v>", ">", "^>" };
@@ -20,6 +20,7 @@ void Hints_ResetClient(int client) {
     g_NextHint[client] = 0.0;
     g_NextHintDraw[client] = 0.0;
     g_bHintShown[client] = false;
+    g_HintMarkerStyle[client] = g_cvHintMarker.IntValue;
 }
 
 public bool Hints_TraceWorld(int entity, int contentsMask) {
@@ -70,6 +71,7 @@ void Hints_Select(int client, int id) {
 
     g_HintGround[client] = ground;
     g_HintMarker[client] = marker;
+    g_HintMarkerDist[client] = reach;
     g_SelectedLineup[client] = id;
     g_bHints[client] = true;
     g_NextHint[client] = 0.0;
@@ -139,6 +141,74 @@ void Hints_ClearText(int client) {
         Hints_SendKeyHint(client, "");
     }
     g_bHintShown[client] = false;
+    g_HintMarkerStyle[client] = g_cvHintMarker.IntValue;
+}
+
+// ---------------------------------------------------------------------------
+// Aim marker
+// ---------------------------------------------------------------------------
+
+// Draws the aim marker of the selected lineup. aimOk: the crosshair is within tolerance.
+//   frame  - a square whose angular size is the aim tolerance (2 x sm_nadepractice_hint_angle_tolerance),
+//            so "crosshair inside the frame" = "aim within tolerance"; yellow, green when aimOk;
+//   cross  - two lines of the same size and colors;
+//   sprite - the old glow sprite (white, does not change color).
+void Hints_DrawMarker(int client, const float lineupAngles[3], bool aimOk, float life) {
+    float marker[3];
+    marker = g_HintMarker[client];
+    int style = g_HintMarkerStyle[client];
+    if (style == MARKER_SPRITE) {
+        Draw_Glow(client, marker, life, 0.3, 255);
+        return;
+    }
+
+    float angles[3], fwd[3], right[3], up[3];
+    angles = lineupAngles;
+    angles[2] = 0.0;
+    GetAngleVectors(angles, fwd, right, up);
+
+    // The aim check compares pitch and yaw separately. A pitch change of tol degrees moves the
+    // view by tol degrees, a yaw change only by about tol * cos(pitch).
+    float tol = g_cvHintAngleTol.FloatValue;
+    float dist = g_HintMarkerDist[client];
+    float halfUp = dist * Tangent(DegToRad(tol));
+    float halfRight = dist * Tangent(DegToRad(tol * Cosine(DegToRad(lineupAngles[0]))));
+
+    int color[4] = { 255, 220, 60, 255 };
+    if (aimOk) {
+        color = { 60, 255, 60, 255 };
+    }
+    float width = g_cvHintMarkerWidth.FloatValue;
+    float a[3], b[3], c[3], d[3];
+
+    if (style == MARKER_CROSS) {
+        for (int i = 0; i < 3; i++) {
+            a[i] = marker[i] - right[i] * halfRight;
+            b[i] = marker[i] + right[i] * halfRight;
+            c[i] = marker[i] - up[i] * halfUp;
+            d[i] = marker[i] + up[i] * halfUp;
+        }
+        Draw_Beam(client, a, b, life, width, color);
+        Draw_Beam(client, c, d, life, width, color);
+        return;
+    }
+
+    // Frame: corners top-left, top-right, bottom-right, bottom-left.
+    for (int i = 0; i < 3; i++) {
+        a[i] = marker[i] - right[i] * halfRight + up[i] * halfUp;
+        b[i] = marker[i] + right[i] * halfRight + up[i] * halfUp;
+        c[i] = marker[i] + right[i] * halfRight - up[i] * halfUp;
+        d[i] = marker[i] - right[i] * halfRight - up[i] * halfUp;
+    }
+    Draw_Beam(client, a, b, life, width, color);
+    Draw_Beam(client, b, c, life, width, color);
+    Draw_Beam(client, c, d, life, width, color);
+    Draw_Beam(client, d, a, life, width, color);
+}
+
+void Hints_CycleMarker(int client) {
+    g_HintMarkerStyle[client] = (g_HintMarkerStyle[client] + 1) % MARKER_COUNT;
+    g_NextHint[client] = 0.0;   // redraw at once
 }
 
 // ---------------------------------------------------------------------------
@@ -230,14 +300,18 @@ void Hints_Frame(int client, float now) {
     }
     Hints_ShowText(client, text, ready);
 
-    // Rings and the marker are updated less often than the text: they are budgeted temp entities.
+    // The aim marker is redrawn with every text update, so its color follows the aim state
+    // at once; the beams live a bit longer than the interval so the marker does not blink.
+    Hints_DrawMarker(client, lineup.angles, pitchOk && yawOk, g_cvHintInterval.FloatValue + 0.15);
+
+    // Rings are updated less often than the text: they are budgeted temp entities.
     if (now < g_NextHintDraw[client]) {
         return;
     }
     g_NextHintDraw[client] = now + HINT_DRAW_PERIOD;
     float life = HINT_DRAW_PERIOD + 0.2;
 
-    float ring[3], marker[3], landing[3];
+    float ring[3], landing[3];
     ring = ground;
     ring[2] += 2.0;
     // CSS-VERIFY: the ring size matches sm_nadepractice_hint_pos_radius.
@@ -246,9 +320,6 @@ void Hints_Frame(int client, float now) {
         ringColor = { 60, 255, 60, 255 };
     }
     Draw_Ring(client, ring, g_cvHintPosRadius.FloatValue * 2.0 + 8.0, life, 2.0, ringColor);
-
-    marker = g_HintMarker[client];
-    Draw_Glow(client, marker, life, 0.3, 255);
 
     if (lineup.hasDetonation) {
         landing = lineup.detonation;

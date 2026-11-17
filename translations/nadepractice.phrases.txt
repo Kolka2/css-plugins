@@ -302,4 +302,20 @@
     {
         "en"        "First person model refreshed. If the hands are still missing, reconnect and tell the admin (debug log: \"viewmodel\")."
     }
+    "Menu Marker"
+    {
+        "en"        "Aim marker"
+    }
+    "Marker Frame"
+    {
+        "en"        "tolerance frame"
+    }
+    "Marker Cross"
+    {
+        "en"        "cross"
+    }
+    "Marker Sprite"
+    {
+        "en"        "glow sprite"
+    }
 }

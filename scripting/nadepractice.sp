@@ -71,6 +71,13 @@ public Plugin myinfo = {
 
 #define NP_EF_NODRAW     32     // EF_NODRAW entity effect
 
+// Aim marker styles.
+#define MARKER_FRAME  0
+#define MARKER_CROSS  1
+#define MARKER_SPRITE 2
+#define MARKER_COUNT  3
+char g_MarkerPhrase[MARKER_COUNT][] = { "Marker Frame", "Marker Cross", "Marker Sprite" };
+
 // Chat prefix: brackets in the default color, the plugin name in green (CLAUDE.md).
 #define CHAT_PREFIX "\x01[\x04NadePractice\x01] "
 
@@ -209,6 +216,8 @@ ConVar g_cvHintAngleTol;
 ConVar g_cvHintMode;
 ConVar g_cvHintUnicode;
 ConVar g_cvHintLookDist;
+ConVar g_cvHintMarker;
+ConVar g_cvHintMarkerWidth;
 
 // preview and flight model
 ConVar g_cvPrevDefault;
@@ -297,6 +306,8 @@ float g_NextHintDraw[MAXPLAYERS + 1];
 bool g_bHintShown[MAXPLAYERS + 1];
 float g_HintGround[MAXPLAYERS + 1][3];
 float g_HintMarker[MAXPLAYERS + 1][3];
+float g_HintMarkerDist[MAXPLAYERS + 1];     // distance from the eyes to the aim marker
+int g_HintMarkerStyle[MAXPLAYERS + 1];      // MARKER_* chosen by the player
 
 // preview and prediction check
 ArrayList g_SimPath;
@@ -379,6 +390,8 @@ public void OnPluginStart() {
     g_cvHintMode      = CreateConVar("sm_nadepractice_hint_mode", "0", "Hint output: 0 = KeyHintText (right panel), 1 = HintText, 2 = HUD text (colored)", _, true, 0.0, true, 2.0);
     g_cvHintUnicode   = CreateConVar("sm_nadepractice_hint_unicode", "1", "Arrows in hints: 1 = unicode, 0 = ASCII", _, true, 0.0, true, 1.0);
     g_cvHintLookDist  = CreateConVar("sm_nadepractice_hint_look_distance", "300.0", "Distance from the eyes of the aim marker (closer if a wall is in the way)", _, true, 32.0, true, 4000.0);
+    g_cvHintMarker    = CreateConVar("sm_nadepractice_hint_marker", "0", "Default aim marker: 0 = tolerance frame, 1 = cross, 2 = glow sprite (each player can change it in the menu)", _, true, 0.0, true, 2.0);
+    g_cvHintMarkerWidth = CreateConVar("sm_nadepractice_hint_marker_width", "0.6", "Line width of the aim frame and cross", _, true, 0.1, true, 5.0);
 
     g_cvPrevDefault    = CreateConVar("sm_nadepractice_preview_default", "1", "Trajectory preview is on for players by default", _, true, 0.0, true, 1.0);
     g_cvPrevInterval   = CreateConVar("sm_nadepractice_preview_interval", "0.1", "Preview update period, seconds", _, true, 0.05, true, 1.0);
