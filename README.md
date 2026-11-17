@@ -19,7 +19,7 @@ Only CS:S is supported.
 | Plugin | What it does | Status | Docs |
 |---|---|---|---|
 | `nadethrow` | CS:GO-style grenade throws: left click, left + right click and right click give throws of different strength. Has an API for other plugins. | Complete. Core mechanic tested on a server, the rest of the checklist is pending. | [README](docs/nadethrow/README.md), [checklist](docs/nadethrow/TEST_CHECKLIST.md) |
-| `nadepractice` | A grenade practice mode: infinite grenades without damage, a tracer for real throws, a per-map lineup database with "where to stand / where to aim" hints, throw replay and a trajectory preview before the throw. | First version tested on a server; rework based on the feedback is in progress. | [README](docs/nadepractice/README.md), [checklist](docs/nadepractice/TEST_CHECKLIST.md) |
+| `nadepractice` | A grenade practice mode: infinite grenades without damage, a tracer for real throws, a per-map lineup database with "where to stand / where to aim" hints, throw replay, a trajectory preview, flash check, HE damage, air time, spawns and timers. Optionally uses `nadethrow`. | Version 0.2.0: rework based on the first server test is complete, awaiting verification on a server. Uses gamedata for one optional feature. | [README](docs/nadepractice/README.md), [checklist](docs/nadepractice/TEST_CHECKLIST.md) |
 | `teammoney` | Shows each player the money, grenades and defuse kits of their team during freeze time. | Complete, awaiting verification on a server. | [README](docs/teammoney/README.md), [checklist](docs/teammoney/TEST_CHECKLIST.md) |
 | `warmup` | A warmup for CS:S, which has none built in: endless round, respawn, $16000 and open buying, no bomb. Game modes drive it through an API; also works on its own. Moved from [css-retakes](https://github.com/Kolka2/css-retakes). | Complete. Tested on a server together with Retakes. | [README](docs/warmup/README.md), [checklist](docs/warmup/TEST_CHECKLIST.md) |
 
@@ -33,6 +33,7 @@ There are no prebuilt binaries yet, so build the plugins first (see below). Then
 
 - `build/<plugin>.smx` → `addons/sourcemod/plugins/`
 - `translations/` → `addons/sourcemod/translations/`
+- `gamedata/` → `addons/sourcemod/gamedata/` (only `nadepractice` uses it, for one optional feature)
 
 ConVars and plugin-specific notes are in each plugin's README.
 
@@ -70,6 +71,7 @@ To use a compiler from another location, set `SPCOMP=/path/to/spcomp`. The inclu
 |---|---|
 | `scripting/` | plugin sources; `scripting/include/` holds their public APIs |
 | `translations/` | translation files (English and Russian) |
+| `gamedata/` | SourceMod gamedata (signatures of game functions) |
 | `docs/<plugin>/` | README, test checklist and work log of each plugin |
 | `templates/` | templates: a service plugin, its API and a plugin with an optional dependency |
 | `ARCHITECTURE.md` | architecture and coding rules for all plugins |

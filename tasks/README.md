@@ -3,7 +3,7 @@
 | # | Задание | Плагины | Зависит от | Статус |
 |---|---|---|---|---|
 | 1 | `NADETHROW_TASK.md` | `nadethrow` | — | выполнено, ждёт проверки на сервере |
-| 2 | `PRACTICE_TASK.md` | `nadepractice` | `nadethrow` (необязательно, но лучше после него) | этапы 0–6 написаны и проверены на сервере; доработка по замечаниям — этапы 7–15 |
+| 2 | `PRACTICE_TASK.md` | `nadepractice` | `nadethrow` (необязательно, но лучше после него) | этапы 0–6 проверены на сервере; доработка (этапы 7–15) выполнена, ждёт проверки на сервере |
 | 3 | `EXECUTES_TASK.md`, задание A | `lineups` | `nadepractice` | черновик |
 | 4 | `EXECUTES_TASK.md`, задание B | `botcontrol` | — (лучше после `nadepractice`) | черновик |
 | 5 | `EXECUTES_TASK.md`, задание C | `executes` | `lineups`, `botcontrol` | черновик |
