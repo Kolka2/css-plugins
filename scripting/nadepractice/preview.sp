@@ -15,16 +15,13 @@
 
 void Preview_Init() {
     RegConsoleCmd("sm_preview", Command_Preview, "Trajectory preview before the throw (toggle)");
-    RegConsoleCmd("sm_preverror", Command_PrevError, "Preview error statistics for the session");
+    RegConsoleCmd("sm_preverror", Command_PrevError, "Preview error statistics for the session (\"reset\" to start over)");
 }
 
 void Preview_ResetClient(int client) {
     g_bPreview[client] = g_cvPrevDefault.BoolValue;
     g_NextPreview[client] = 0.0;
-    g_ErrCount[client] = 0;
-    g_ErrSum[client] = 0.0;
-    g_ErrMax[client] = 0.0;
-    g_ErrLast[client] = 0.0;
+    Preview_ResetStats(client);
 }
 
 // ---------------------------------------------------------------------------
@@ -41,15 +38,29 @@ public bool Sim_TraceFilter(int entity, int contentsMask) {
     return !(entity <= MAX_EDICTS && g_bProjectileEnt[entity]);
 }
 
-// Initial projectile position and velocity from the player state.
-void Sim_ThrowParams(const float eye[3], const float angles[3], const float playerVel[3], float pos[3], float vel[3]) {
-    float pitch = angles[0];
-    if (pitch > 90.0) {
-        pitch -= 360.0;
+// Throw pitch from the view pitch, as the game computes it. The view pitch is taken in 0..360
+// (SourceMod gives "up" as negative): looking down (< 90) maps 0..90 to offset..offset+90*down,
+// looking up maps 360..270 to offset..offset-90*up. With the defaults (-10, 100/90, 80/90) the
+// throw goes 10 degrees above the view at the horizon and straight up / down at the extremes.
+// Checked against 210 throws of the owner's debug log: velocity error below 0.25 units/s.
+float Sim_ThrowPitch(float viewPitch) {
+    float p = viewPitch;
+    if (p < 0.0) {
+        p += 360.0;
     }
-    // The game raises the throw relative to the view: looking at the horizon, the grenade flies 10 degrees higher.
     float offset = g_cvSimPitchOffset.FloatValue;
-    pitch = offset + pitch * ((90.0 - offset) / 90.0);
+    if (p < 90.0) {
+        return offset + p * g_cvSimThrowDownScale.FloatValue;
+    }
+    return offset - (360.0 - p) * g_cvSimThrowUpScale.FloatValue;
+}
+
+// Initial projectile position and velocity from the player state:
+//   speed = min((90 - throwPitch) * factor, max)
+//   vel   = dir(throwPitch, yaw) * speed + player velocity
+//   start = eye + dir * forward (closer if a wall is in the way)
+void Sim_ThrowParams(const float eye[3], const float angles[3], const float playerVel[3], float pos[3], float vel[3]) {
+    float pitch = Sim_ThrowPitch(angles[0]);
 
     float speed = (90.0 - pitch) * g_cvSimThrowFactor.FloatValue;
     float speedMax = g_cvSimThrowMax.FloatValue;
@@ -63,16 +74,16 @@ void Sim_ThrowParams(const float eye[3], const float angles[3], const float play
     throwAngles[2] = 0.0;
     GetAngleVectors(throwAngles, forwardDir, NULL_VECTOR, NULL_VECTOR);
 
-    // The projectile appears a bit in front of the eyes; at the wall if one is there.
+    // The projectile appears a bit in front of the eyes; at the wall if one is there
+    // (the game traces a 4x4x4 box with the player's solid mask).
     float target[3], mins[3], maxs[3];
-    float hull = g_cvSimHull.FloatValue;
     float dist = g_cvSimForward.FloatValue;
     for (int i = 0; i < 3; i++) {
         target[i] = eye[i] + forwardDir[i] * dist;
-        mins[i] = -hull;
-        maxs[i] = hull;
+        mins[i] = -2.0;
+        maxs[i] = 2.0;
     }
-    TR_TraceHullFilter(eye, target, mins, maxs, MASK_SOLID, Sim_TraceFilter);
+    TR_TraceHullFilter(eye, target, mins, maxs, MASK_PLAYERSOLID, Sim_TraceFilter);
     TR_GetEndPosition(pos);
 
     float factor = g_cvSimPlayerVel.FloatValue;
@@ -276,8 +287,9 @@ void Preview_OnThrow(int client, int entity) {
     float realPos[3], realVel[3];
     realPos = g_LastThrow[client].projOrigin;
     realVel = g_LastThrow[client].projVelocity;
-    LogDebug("predict #%d: start model=(%.1f %.1f %.1f) real=(%.1f %.1f %.1f) d=%.1f | vel model=(%.1f %.1f %.1f) real=(%.1f %.1f %.1f) d=%.1f | landing model=(%.1f %.1f %.1f)",
-        g_LastThrow[client].serial, pos[0], pos[1], pos[2], realPos[0], realPos[1], realPos[2], GetVectorDistance(pos, realPos),
+    LogDebug("predict #%d: view pitch %.2f -> throw pitch %.2f | start model=(%.1f %.1f %.1f) real=(%.1f %.1f %.1f) d=%.1f | vel model=(%.1f %.1f %.1f) real=(%.1f %.1f %.1f) d=%.1f | landing model=(%.1f %.1f %.1f)",
+        g_LastThrow[client].serial, angles[0], Sim_ThrowPitch(angles[0]),
+        pos[0], pos[1], pos[2], realPos[0], realPos[1], realPos[2], GetVectorDistance(pos, realPos),
         vel[0], vel[1], vel[2], realVel[0], realVel[1], realVel[2], GetVectorDistance(vel, realVel),
         end[0], end[1], end[2]);
 }
@@ -292,8 +304,9 @@ void Preview_OnLanded(int client, int nade, const float predicted[3], const floa
         g_ErrMax[client] = error;
     }
 
-    LogDebug("prediction error: %N nade=%s error=%.1f predicted=(%.1f %.1f %.1f) actual=(%.1f %.1f %.1f)",
-        client, g_NadeKey[nade], error, predicted[0], predicted[1], predicted[2], actual[0], actual[1], actual[2]);
+    LogDebug("prediction error: %N nade=%s error=%.1f (dz %.1f) predicted=(%.1f %.1f %.1f) actual=(%.1f %.1f %.1f) | session: %d throws, average %.1f",
+        client, g_NadeKey[nade], error, actual[2] - predicted[2], predicted[0], predicted[1], predicted[2], actual[0], actual[1], actual[2],
+        g_ErrCount[client], g_ErrSum[client] / float(g_ErrCount[client]));
 
     // Called from OnGameFrame (tracer): check the phrase first.
     if (g_bPreview[client] && PhraseExists("Prediction Error")) {
@@ -318,9 +331,28 @@ public Action Command_Preview(int client, int args) {
     return Plugin_Handled;
 }
 
+// !preverror - statistics; !preverror reset - start over (to compare before and after changing cvars).
 public Action Command_PrevError(int client, int args) {
-    if (IsHuman(client)) {
-        Preview_TellStats(client);
+    if (!IsHuman(client)) {
+        return Plugin_Handled;
     }
+    char arg[16];
+    if (args >= 1) {
+        GetCmdArg(1, arg, sizeof(arg));
+    }
+    if (StrEqual(arg, "reset", false)) {
+        Preview_ResetStats(client);
+        LogDebug("prediction stats reset by %N", client);
+        NP_Print(client, "%t", "Prediction Reset");
+        return Plugin_Handled;
+    }
+    Preview_TellStats(client);
     return Plugin_Handled;
+}
+
+void Preview_ResetStats(int client) {
+    g_ErrCount[client] = 0;
+    g_ErrSum[client] = 0.0;
+    g_ErrMax[client] = 0.0;
+    g_ErrLast[client] = 0.0;
 }

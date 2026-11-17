@@ -318,4 +318,8 @@
     {
         "en"        "glow sprite"
     }
+    "Prediction Reset"
+    {
+        "en"        "Preview accuracy statistics reset."
+    }
 }
