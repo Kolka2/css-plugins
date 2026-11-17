@@ -276,6 +276,9 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
     bool reopen = true;
 
     if (StrEqual(info, "lineups")) {
+        // The lineup menu gets a Back button that returns to this page.
+        g_PracticeMenuPos[client] = menu.Selection;
+        g_bMenuFromPractice[client] = true;
         Lineups_ShowMainMenu(client);
         reopen = false;
     } else if (StrEqual(info, "last")) {

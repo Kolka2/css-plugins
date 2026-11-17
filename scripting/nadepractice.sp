@@ -277,6 +277,9 @@ int g_NextLineupId = 1;
 char g_LineupsFile[PLATFORM_MAX_PATH];
 int g_MenuFilter[MAXPLAYERS + 1];
 int g_MenuLineup[MAXPLAYERS + 1];
+bool g_bMenuFromPractice[MAXPLAYERS + 1];   // lineup menu opened from !practice: has a Back button
+int g_PracticeMenuPos[MAXPLAYERS + 1];      // first item of the !practice page to return to
+int g_ListMenuPos[MAXPLAYERS + 1];          // first item of the lineup list page to return to
 
 // hints
 Handle g_HudSync;
@@ -508,6 +511,9 @@ void ResetClientState(int client) {
     g_TeLeft[client] = 0;
     g_MenuFilter[client] = NADE_NONE;
     g_MenuLineup[client] = 0;
+    g_bMenuFromPractice[client] = false;
+    g_PracticeMenuPos[client] = 0;
+    g_ListMenuPos[client] = 0;
     Tracer_ResetClient(client);
     Hints_ResetClient(client);
     Preview_ResetClient(client);

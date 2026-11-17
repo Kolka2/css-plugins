@@ -376,6 +376,8 @@ public Action Command_Save(int client, int args) {
 
 public Action Command_Lineups(int client, int args) {
     if (CanPractice(client)) {
+        // Opened by command: no Back button.
+        g_bMenuFromPractice[client] = false;
         Lineups_ShowMainMenu(client);
     }
     return Plugin_Handled;
@@ -386,6 +388,7 @@ public Action Command_Goto(int client, int args) {
         return Plugin_Handled;
     }
     if (args < 1 && Lineups_IndexById(g_SelectedLineup[client]) == -1) {
+        g_bMenuFromPractice[client] = false;
         Lineups_ShowMainMenu(client);
         return Plugin_Handled;
     }
@@ -493,9 +496,12 @@ int Lineups_CountByNade(int nade) {
     return count;
 }
 
+// Top lineup menu. Has a Back button to !practice only if it was opened from there
+// (g_bMenuFromPractice); the flag is kept while the player moves inside the lineup menus.
 void Lineups_ShowMainMenu(int client) {
     Menu menu = new Menu(MenuHandler_LineupsMain);
     menu.SetTitle("%T", "Lineups Title", client, g_Lineups.Length);
+    menu.ExitBackButton = g_bMenuFromPractice[client];
 
     char text[96], info[8];
     FormatEx(text, sizeof(text), "%T (%d)", "Lineups Nearest", client, Lineups_CountByNade(NADE_NONE));
@@ -514,6 +520,9 @@ void Lineups_ShowMainMenu(int client) {
 public int MenuHandler_LineupsMain(Menu menu, MenuAction action, int client, int item) {
     if (action == MenuAction_End) {
         delete menu;
+    } else if (action == MenuAction_Cancel && item == MenuCancel_ExitBack && g_bActive) {
+        LogDebug("menu: %N back from lineups to !practice (item %d)", client, g_PracticeMenuPos[client]);
+        Practice_ShowMenu(client, g_PracticeMenuPos[client]);
     } else if (action == MenuAction_Select && g_bActive) {
         char info[16];
         menu.GetItem(item, info, sizeof(info));
@@ -528,8 +537,8 @@ public int MenuHandler_LineupsMain(Menu menu, MenuAction action, int client, int
     return 0;
 }
 
-// Lineup list, nearest to the player first.
-void Lineups_ShowListMenu(int client) {
+// Lineup list, nearest to the player first. firstItem: page to open (after Back from a lineup card).
+void Lineups_ShowListMenu(int client, int firstItem = 0) {
     int filter = g_MenuFilter[client];
     float origin[3], spot[3];
     GetClientAbsOrigin(client, origin);
@@ -569,7 +578,10 @@ void Lineups_ShowListMenu(int client) {
         menu.AddItem(info, text);
     }
     delete order;
-    menu.Display(client, MENU_TIME_FOREVER);
+    if (firstItem >= menu.ItemCount) {
+        firstItem = 0;
+    }
+    menu.DisplayAt(client, firstItem, MENU_TIME_FOREVER);
 }
 
 public int MenuHandler_LineupsList(Menu menu, MenuAction action, int client, int item) {
@@ -581,6 +593,7 @@ public int MenuHandler_LineupsList(Menu menu, MenuAction action, int client, int
         char info[16];
         menu.GetItem(item, info, sizeof(info));
         g_MenuLineup[client] = StringToInt(info);
+        g_ListMenuPos[client] = menu.Selection;
         Lineups_ShowItemMenu(client);
     }
     return 0;
@@ -619,7 +632,7 @@ public int MenuHandler_LineupsItem(Menu menu, MenuAction action, int client, int
         return 0;
     }
     if (action == MenuAction_Cancel && item == MenuCancel_ExitBack) {
-        Lineups_ShowListMenu(client);
+        Lineups_ShowListMenu(client, g_ListMenuPos[client]);
         return 0;
     }
     if (action != MenuAction_Select) {
@@ -646,7 +659,8 @@ public int MenuHandler_LineupsItem(Menu menu, MenuAction action, int client, int
         if (Lineups_CanEdit(client)) {
             Lineups_Delete(client, index);
         }
-        Lineups_ShowMainMenu(client);
+        // Back to the same list page (falls back to the top menu if the list is now empty).
+        Lineups_ShowListMenu(client, g_ListMenuPos[client]);
         return 0;
     }
     Lineups_ShowItemMenu(client);
