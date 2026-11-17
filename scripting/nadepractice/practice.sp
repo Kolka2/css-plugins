@@ -568,28 +568,44 @@ public Action Command_Menu(int client, int args) {
     return Plugin_Handled;
 }
 
+// Menu texts never fail: a missing phrase (outdated translation files on the server) shows
+// its name instead of aborting the whole menu, and is logged once (PhraseExists).
+void Menu_Text(int client, const char[] phrase, char[] text, int maxlen) {
+    if (PhraseExists(phrase)) {
+        FormatEx(text, maxlen, "%T", phrase, client);
+    } else {
+        strcopy(text, maxlen, phrase);
+    }
+}
+
 void Menu_AddPhrase(Menu menu, int client, const char[] info, const char[] phrase) {
     char text[96];
-    FormatEx(text, sizeof(text), "%T", phrase, client);
+    Menu_Text(client, phrase, text, sizeof(text));
     menu.AddItem(info, text);
 }
 
 void Menu_AddToggle(Menu menu, int client, const char[] info, const char[] phrase, bool value) {
-    char text[96];
-    FormatEx(text, sizeof(text), "%T: %T", phrase, client, value ? "On" : "Off", client);
+    char text[96], name[64], state[16];
+    Menu_Text(client, phrase, name, sizeof(name));
+    Menu_Text(client, value ? "On" : "Off", state, sizeof(state));
+    FormatEx(text, sizeof(text), "%s: %s", name, state);
     menu.AddItem(info, text);
 }
 
 // Menu item "<name>: <current choice>".
 void Menu_AddChoice(Menu menu, int client, const char[] info, const char[] phrase, const char[] choicePhrase) {
-    char text[96];
-    FormatEx(text, sizeof(text), "%T: %T", phrase, client, choicePhrase, client);
+    char text[96], name[64], choice[48];
+    Menu_Text(client, phrase, name, sizeof(name));
+    Menu_Text(client, choicePhrase, choice, sizeof(choice));
+    FormatEx(text, sizeof(text), "%s: %s", name, choice);
     menu.AddItem(info, text);
 }
 
 void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu menu = new Menu(MenuHandler_Practice);
-    menu.SetTitle("%T", "Menu Title", client);
+    char title[64];
+    Menu_Text(client, "Menu Title", title, sizeof(title));
+    menu.SetTitle(title);
 
     Menu_AddPhrase(menu, client, "lineups", "Menu Lineups");
     Menu_AddPhrase(menu, client, "last", "Menu Last");

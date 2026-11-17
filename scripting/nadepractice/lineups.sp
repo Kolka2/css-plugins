@@ -855,7 +855,11 @@ void Edit_ShowMenu(int client) {
     } else {
         FormatEx(target, sizeof(target), "%T", "Edit Last Throw", client);
     }
-    menu.SetTitle("%T", "Edit Title", client, target);
+    if (PhraseExists("Edit Title")) {
+        menu.SetTitle("%T", "Edit Title", client, target);
+    } else {
+        menu.SetTitle(target);
+    }
     menu.ExitBackButton = true;
     Menu_AddPhrase(menu, client, "start", "Edit Menu Start");
     Menu_AddPhrase(menu, client, "release", "Edit Menu Release");

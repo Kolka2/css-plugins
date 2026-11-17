@@ -446,7 +446,9 @@ public Action Command_Flash(int client, int args) {
 
 void Measure_ShowMenu(int client) {
     Menu menu = new Menu(MenuHandler_Measure);
-    menu.SetTitle("%T", "Measure Title", client);
+    char title[64];
+    Menu_Text(client, "Measure Title", title, sizeof(title));
+    menu.SetTitle(title);
     menu.ExitBackButton = true;
     Menu_AddPhrase(menu, client, "set", "Measure Set Point");
     if (g_bCheckOn[client]) {

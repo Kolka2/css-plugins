@@ -560,6 +560,19 @@ public void OnAllPluginsLoaded() {
     g_bHasNadethrow = LibraryExists(NADETHROW_LIBRARY);
     // Load report (ARCHITECTURE.md, section 12).
     LogMessage("[nadepractice] %s, nadethrow: %s", PLUGIN_VERSION, g_bHasNadethrow ? "yes" : "no");
+    CheckTranslations();
+}
+
+// The plugin and its translation files are updated separately; old files lack the newest
+// phrases. One clear line in the error log instead of a missing phrase error per use.
+void CheckTranslations() {
+    char newest[][] = { "Menu Spawns", "Menu Measure", "Menu Marker", "Timer Hint Running", "Hint Start" };
+    for (int i = 0; i < sizeof(newest); i++) {
+        if (!TranslationPhraseExists(newest[i])) {
+            LogError("[nadepractice] translations/nadepractice.phrases.txt is outdated or missing (no phrase \"%s\"): copy translations/nadepractice.phrases.txt and translations/ru/nadepractice.phrases.txt of this version to the server and run sm_reload_translations", newest[i]);
+            return;
+        }
+    }
 }
 
 public void OnLibraryAdded(const char[] name) {

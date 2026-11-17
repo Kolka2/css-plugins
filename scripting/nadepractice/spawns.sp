@@ -155,7 +155,9 @@ public Action Command_WorstSpawn(int client, int args) {
 // Menu: spawns of the player's side first, then the other side, with numbers and distance.
 void Spawns_ShowMenu(int client) {
     Menu menu = new Menu(MenuHandler_Spawns);
-    menu.SetTitle("%T", "Spawn Menu Title", client);
+    char title[64];
+    Menu_Text(client, "Spawn Menu Title", title, sizeof(title));
+    menu.SetTitle(title);
     menu.ExitBackButton = true;
     int first = (GetClientTeam(client) == CS_TEAM_CT) ? SPAWN_CT : SPAWN_T;
     float origin[3], spot[3], entry[5];
