@@ -596,7 +596,13 @@ public Action Command_Menu(int client, int args) {
         return Plugin_Handled;
     }
     if (!g_bActive) {
-        NP_Print(client, "%t", "Mode Inactive");
+        // An admin gets the server menu, where the mode can be started.
+        if (Admin_HasAccess(client)) {
+            g_bAdminFromPractice[client] = false;
+            Admin_ShowMenu(client);
+        } else {
+            NP_Print(client, "%t", "Mode Inactive");
+        }
         return Plugin_Handled;
     }
     Practice_ShowMenu(client);
@@ -642,6 +648,9 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_Text(client, "Menu Title", title, sizeof(title));
     menu.SetTitle(title);
 
+    if (Admin_HasAccess(client)) {
+        Menu_AddPhrase(menu, client, "server", "Menu Server");
+    }
     Menu_AddPhrase(menu, client, "lineups", "Menu Lineups");
     Menu_AddPhrase(menu, client, "last", "Menu Last");
     Menu_AddPhrase(menu, client, "back", "Menu Back");
@@ -680,7 +689,12 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
     menu.GetItem(item, info, sizeof(info));
     bool reopen = true;
 
-    if (StrEqual(info, "lineups")) {
+    if (StrEqual(info, "server")) {
+        g_PracticeMenuPos[client] = menu.Selection;
+        g_bAdminFromPractice[client] = true;
+        Admin_ShowMenu(client);
+        reopen = false;
+    } else if (StrEqual(info, "lineups")) {
         // The lineup menu gets a Back button that returns to this page.
         g_PracticeMenuPos[client] = menu.Selection;
         g_bMenuFromPractice[client] = true;
@@ -756,7 +770,7 @@ char g_DotCommands[][] = {
     "practice", "nadepractice", "noclip", "back", "last", "clear", "tracer", "preview", "preverror",
     "noflash", "hands", "hints", "save", "lineups", "goto", "show", "delete", "rename", "desc",
     "setstart", "setrelease", "setaim", "nostart", "flash", "spawn", "bestspawn", "worstspawn",
-    "timer", "timer2", "all"
+    "timer", "timer2", "all", "prac"
 };
 
 void Practice_DotCommand(int client, const char[] sArgs) {

@@ -721,4 +721,73 @@
     {
         "en"        "Lineups are no longer shown."
     }
+    "Menu Server"
+    {
+        "en"        "Server (admin)"
+    }
+    "Admin Title"
+    {
+        "en"        "Server settings (until the map changes)"
+    }
+    "Admin Start Mode"
+    {
+        "en"        "Start the practice mode"
+    }
+    "Admin Stop Mode"
+    {
+        "en"        "Stop the practice mode"
+    }
+    "Admin Start Failed"
+    {
+        "en"        "Cannot start the mode: sm_nadepractice_enabled is 0."
+    }
+    "Admin No Access"
+    {
+        "en"        "You do not have access to the server menu."
+    }
+    "Admin Buy Anywhere"
+    {
+        "en"        "Buy anywhere"
+    }
+    "Admin Infinite Money"
+    {
+        "en"        "Infinite money"
+    }
+    "Admin Infinite Nades"
+    {
+        "en"        "Infinite grenades"
+    }
+    "Admin Give On Spawn"
+    {
+        "en"        "Grenades on spawn"
+    }
+    "Admin Block Damage"
+    {
+        "en"        "Block all damage"
+    }
+    "Admin Block Self Damage"
+    {
+        "en"        "Block damage from own grenades"
+    }
+    "Admin Autostart"
+    {
+        "en"        "Start the mode on every map"
+    }
+    "Admin Respawn"
+    {
+        "en"        "Respawn"
+    }
+    "Admin Cheats"
+    {
+        "en"        "sv_cheats (whole server, until the mode stops)"
+    }
+    "Admin Cheats Inactive"
+    {
+        "en"        "sv_cheats (start the mode first)"
+    }
+    "Admin Changed"
+    {
+        "#format"   "{1:s},{2:s},{3:s}"
+        "en"        "{1} set \"{2}\": {3}."
+    }
 }

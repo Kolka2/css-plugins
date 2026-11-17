@@ -684,4 +684,72 @@
     {
         "ru"        "Лайнапы больше не показываются."
     }
+    "Menu Server"
+    {
+        "ru"        "Сервер (админ)"
+    }
+    "Admin Title"
+    {
+        "ru"        "Настройки сервера (до смены карты)"
+    }
+    "Admin Start Mode"
+    {
+        "ru"        "Запустить режим тренировки"
+    }
+    "Admin Stop Mode"
+    {
+        "ru"        "Остановить режим тренировки"
+    }
+    "Admin Start Failed"
+    {
+        "ru"        "Режим не запускается: sm_nadepractice_enabled равен 0."
+    }
+    "Admin No Access"
+    {
+        "ru"        "Нет доступа к меню сервера."
+    }
+    "Admin Buy Anywhere"
+    {
+        "ru"        "Закупка везде"
+    }
+    "Admin Infinite Money"
+    {
+        "ru"        "Бесконечные деньги"
+    }
+    "Admin Infinite Nades"
+    {
+        "ru"        "Бесконечные гранаты"
+    }
+    "Admin Give On Spawn"
+    {
+        "ru"        "Гранаты при появлении"
+    }
+    "Admin Block Damage"
+    {
+        "ru"        "Без урона"
+    }
+    "Admin Block Self Damage"
+    {
+        "ru"        "Без урона от своих гранат"
+    }
+    "Admin Autostart"
+    {
+        "ru"        "Запускать режим на каждой карте"
+    }
+    "Admin Respawn"
+    {
+        "ru"        "Возрождение"
+    }
+    "Admin Cheats"
+    {
+        "ru"        "sv_cheats (весь сервер, до остановки режима)"
+    }
+    "Admin Cheats Inactive"
+    {
+        "ru"        "sv_cheats (сначала запусти режим)"
+    }
+    "Admin Changed"
+    {
+        "ru"        "{1} изменил «{2}»: {3}."
+    }
 }

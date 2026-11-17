@@ -86,11 +86,13 @@
 
 Пока режим запущен, команды плагина работают и с точкой: `.spawn`, `.noclip`, `.save имя` и т. д. (`sm_nadepractice_dot_commands`).
 
-Админ-команды: `sm_nadepractice_start`, `sm_nadepractice_stop` (флаг changemap), `sm_nadepractice_gamedata` (флаг generic) — состояние функций gamedata.
+Админ-команды: `sm_nadepractice_start`, `sm_nadepractice_stop` (флаг changemap), `sm_nadepractice_gamedata` (флаг generic) — состояние функций gamedata, `!prac` / `sm_nadepractice_admin` (доступ `sm_nadepractice_admin`, по умолчанию флаг changemap) — меню сервера.
+
+**Меню сервера** (`!prac`, `.prac` или «Сервер (админ)» в `!practice`; если режим не запущен, `!practice` у админа открывает его): запуск и остановка режима; закупка везде, бесконечные деньги, бесконечные гранаты, гранаты при появлении, без урона, без урона от своих гранат, автозапуск, возрождение; `sv_cheats` — только пока режим запущен, возвращается при остановке. Изменения действуют до смены карты (новая карта снова выполняет `cfg/sourcemod/nadepractice.cfg`); о каждом пишется всем админам в чат и в лог действий админов SourceMod.
 
 ## Меню `!practice`
 
-Лайнапы (с кнопкой «Назад»), повтор, назад, noclip, очистка, переключатели трассера, предпросмотра и подсказок; **текст подсказки** (панель справа / по центру экрана / цветной под прицелом); **метка прицела** (рамка допуска / крестик / спрайт); **проверка позиции** (авто / старт / точка броска); **правка** старта, точки броска и прицела; **замеры** (точка проверки ослепления, для флешек или флешек и HE, возврат после проверки, отчёт урона HE, отчёт времени полёта, `!noflash`); **спавны**; **длительность дыма** (по умолчанию игры / 5 / 10 / 30 / 60 с); `!noflash`; «вернуть руки»; точность предпросмотра; список команд.
+«Сервер (админ)» — только админам; лайнапы (с кнопкой «Назад»), повтор, назад, noclip, очистка, переключатели трассера, предпросмотра и подсказок; **текст подсказки** (панель справа / по центру экрана / цветной под прицелом); **метка прицела** (рамка допуска / крестик / спрайт); **проверка позиции** (авто / старт / точка броска); **правка** старта, точки броска и прицела; **замеры** (точка проверки ослепления, для флешек или флешек и HE, возврат после проверки, отчёт урона HE, отчёт времени полёта, `!noflash`); **спавны**; **длительность дыма** (по умолчанию игры / 5 / 10 / 30 / 60 с); `!noflash`; «вернуть руки»; точность предпросмотра; список команд.
 
 ## Как пользоваться
 
@@ -354,11 +356,13 @@ While the mode is active, `sm_noclip` / `!noclip` without an argument is handled
 
 While the mode is active, the plugin's commands also work with a dot: `.spawn`, `.noclip`, `.save name` and so on (`sm_nadepractice_dot_commands`).
 
-Admin commands: `sm_nadepractice_start`, `sm_nadepractice_stop` (changemap flag), `sm_nadepractice_gamedata` (generic flag) — state of the gamedata features.
+Admin commands: `sm_nadepractice_start`, `sm_nadepractice_stop` (changemap flag), `sm_nadepractice_gamedata` (generic flag) — state of the gamedata features, `!prac` / `sm_nadepractice_admin` (access `sm_nadepractice_admin`, changemap flag by default) — server menu.
+
+**Server menu** (`!prac`, `.prac` or "Server (admin)" in `!practice`; when the mode is not running, `!practice` opens it for admins): start and stop the mode; buy anywhere, infinite money, infinite grenades, grenades on spawn, no damage, no damage from own grenades, autostart, respawn; `sv_cheats` — only while the mode runs, restored when it stops. Changes last until the map changes (the next map runs `cfg/sourcemod/nadepractice.cfg` again); every change is announced to all admins in chat and written to the SourceMod admin log.
 
 ## The `!practice` menu
 
-Lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints toggles; **hint text** (panel on the right / centre of the screen / colored under the crosshair); **aim marker** (tolerance frame / cross / sprite); **position check** (auto / start / release point); **edit** start, release point and aim; **measurements** (flash check point, used by flashbangs or flashbangs and HE, return after the check, HE damage report, air time report, `!noflash`); **spawns**; **smoke duration** (game default / 5 / 10 / 30 / 60 s); `!noflash`; "fix hands"; preview accuracy; command list.
+"Server (admin)" — admins only; lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints toggles; **hint text** (panel on the right / centre of the screen / colored under the crosshair); **aim marker** (tolerance frame / cross / sprite); **position check** (auto / start / release point); **edit** start, release point and aim; **measurements** (flash check point, used by flashbangs or flashbangs and HE, return after the check, HE damage report, air time report, `!noflash`); **spawns**; **smoke duration** (game default / 5 / 10 / 30 / 60 s); `!noflash`; "fix hands"; preview accuracy; command list.
 
 ## How to use it
 

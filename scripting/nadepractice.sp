@@ -30,6 +30,8 @@
  *   timer.sp    - movement timers (!timer, !timer2)
  *   smoke.sp    - smoke duration of each thrower
  *   gamedata.sp - everything that uses gamedata (real replay detonation)
+ *   shown.sp    - lineups shown on the map at once, auto-selection
+ *   admin.sp    - server menu for admins (!prac)
  */
 
 #pragma semicolon 1
@@ -413,6 +415,7 @@ bool g_bListCards[MAXPLAYERS + 1];          // lineup list opens cards (otherwis
 ArrayList g_ShownIds[MAXPLAYERS + 1];       // lineups shown one by one (ids)
 bool g_bShowAll[MAXPLAYERS + 1];
 int g_ShownDrawPos[MAXPLAYERS + 1];
+bool g_bAdminFromPractice[MAXPLAYERS + 1];  // server menu opened from !practice: Back returns there
 
 // hints
 Handle g_HudSync;
@@ -459,6 +462,7 @@ float g_ErrStrSum[MAXPLAYERS + 1][3];
 #include "nadepractice/timer.sp"
 #include "nadepractice/smoke.sp"
 #include "nadepractice/shown.sp"
+#include "nadepractice/admin.sp"
 #include "nadepractice/gamedata.sp"
 
 // ---------------------------------------------------------------------------
@@ -591,6 +595,7 @@ public void OnPluginStart() {
     Timer_Init();
     Gamedata_Init();
     Shown_Init();
+    Admin_Init();
 
     // A mode reacts to game events in Post (ARCHITECTURE.md, section 4).
     HookEvent("player_spawn", Event_PlayerSpawn, EventHookMode_Post);
