@@ -127,6 +127,25 @@ void ThrowName(int client, int type, char[] buffer, int maxlen) {
     FormatEx(buffer, maxlen, "%T", g_ThrowPhrase[type], client);
 }
 
+// Strength group of a nadethrow strength: 1.0 left, 0.5 left + right, 0.0 right click.
+int StrengthGroup(float strength) {
+    if (strength >= 0.75) {
+        return STRENGTH_FULL;
+    }
+    return (strength >= 0.25) ? STRENGTH_MEDIUM : STRENGTH_LIGHT;
+}
+
+// Throw type with the buttons, e.g. "jumpthrow, RMB". The buttons are added when they are
+// not the plain left click or when nadethrow is loaded (then left click is a choice too).
+void ThrowNameEx(int client, int type, float strength, char[] buffer, int maxlen) {
+    int group = StrengthGroup(strength);
+    if (group == STRENGTH_FULL && !IsNadethrowEnabled()) {
+        ThrowName(client, type, buffer, maxlen);
+        return;
+    }
+    FormatEx(buffer, maxlen, "%T, %T", g_ThrowPhrase[type], client, g_StrengthPhrase[group], client);
+}
+
 // ---------------------------------------------------------------------------
 // Grenades
 // ---------------------------------------------------------------------------

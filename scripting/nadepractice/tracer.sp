@@ -200,7 +200,7 @@ int Tracer_FindByRef(int ref) {
 }
 
 // Attaches the predicted landing point to a tracked projectile (for the prediction check).
-void Tracer_SetPrediction(int entity, const float predicted[3]) {
+void Tracer_SetPrediction(int entity, const float predicted[3], float strength) {
     int index = Tracer_FindByRef(EntIndexToEntRef(entity));
     if (index == -1) {
         return;
@@ -209,6 +209,7 @@ void Tracer_SetPrediction(int entity, const float predicted[3]) {
     g_Tracked.GetArray(index, item);
     item.predicted = predicted;
     item.hasPrediction = true;
+    item.strength = strength;
     g_Tracked.SetArray(index, item);
 }
 
@@ -302,7 +303,7 @@ void Tracer_Finish(int index, const float pos[3], bool detonated) {
 
     // A smoke whose record ended without a detonation does not count in the statistics.
     if (item.hasPrediction && (detonated || item.nade != NADE_SMOKE)) {
-        Preview_OnLanded(client, item.nade, item.predicted, pos);
+        Preview_OnLanded(client, item.nade, item.predicted, pos, item.strength);
     }
 }
 

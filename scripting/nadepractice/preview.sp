@@ -240,6 +240,11 @@ void Preview_Frame(int client, float now) {
     GetClientEyeAngles(client, angles);
     GetEntityVelocity(client, playerVel);
     Sim_ThrowParams(eye, angles, playerVel, pos, vel);
+    // While the pin is pulled with nadethrow, the throw follows the buttons held; otherwise 1.0.
+    float strength = GetCurrentStrength(client);
+    if (strength >= 0.0) {
+        Sim_ApplyStrength(pos, vel, playerVel, strength);
+    }
 
     g_SimPath.Clear();
     Sim_Run(pos, vel, nade, g_SimPath, end);
@@ -272,30 +277,60 @@ void Preview_Frame(int client, float now) {
 // Prediction check
 // ---------------------------------------------------------------------------
 
+// nadethrow strength applied to a throw computed for strength 1.0, by the formulas of the
+// nadethrow README: only the throw's own part of the velocity is scaled,
+//   k = minScale + (1 - minScale) * strength,  vel = (vel - playerVel) * k + playerVel,
+// and the release point is lowered by (1 - strength) * zOffset unless something is in the way.
+void Sim_ApplyStrength(float pos[3], float vel[3], const float playerVel[3], float strength) {
+    if (strength >= 1.0 || !g_bHasNadethrow) {
+        return;
+    }
+    float minScale = GetNadethrowMinScale();
+    float k = minScale + (1.0 - minScale) * strength;
+    for (int i = 0; i < 3; i++) {
+        vel[i] = (vel[i] - playerVel[i]) * k + playerVel[i];
+    }
+    float drop = (1.0 - strength) * GetNadethrowZOffset();
+    if (drop <= 0.0) {
+        return;
+    }
+    float lowered[3];
+    lowered = pos;
+    lowered[2] -= drop;
+    float mins[3] = { -2.0, -2.0, -2.0 };
+    float maxs[3] = { 2.0, 2.0, 2.0 };
+    TR_TraceHullFilter(pos, lowered, mins, maxs, MASK_SOLID, Sim_TraceFilter);
+    if (!TR_DidHit() && !TR_StartSolid()) {
+        pos = lowered;
+    }
+}
+
 // A real throw: compute where the model expects the detonation and attach it to the projectile.
 void Preview_OnThrow(int client, int entity) {
     float eye[3], angles[3], playerVel[3], pos[3], vel[3], end[3];
     eye = g_LastThrow[client].eye;
     angles = g_LastThrow[client].angles;
     playerVel = g_LastThrow[client].velocity;
+    float strength = g_LastThrow[client].strength;
 
     Sim_ThrowParams(eye, angles, playerVel, pos, vel);
+    Sim_ApplyStrength(pos, vel, playerVel, strength);
     Sim_Run(pos, vel, g_LastThrow[client].nade, null, end);
-    Tracer_SetPrediction(entity, end);
+    Tracer_SetPrediction(entity, end, strength);
 
     // The initial condition mismatch is the first thing to look at when tuning the model.
     float realPos[3], realVel[3];
     realPos = g_LastThrow[client].projOrigin;
     realVel = g_LastThrow[client].projVelocity;
-    LogDebug("predict #%d: view pitch %.2f -> throw pitch %.2f | start model=(%.1f %.1f %.1f) real=(%.1f %.1f %.1f) d=%.1f | vel model=(%.1f %.1f %.1f) real=(%.1f %.1f %.1f) d=%.1f | landing model=(%.1f %.1f %.1f)",
-        g_LastThrow[client].serial, angles[0], Sim_ThrowPitch(angles[0]),
+    LogDebug("predict #%d: strength %.2f, view pitch %.2f -> throw pitch %.2f | start model=(%.1f %.1f %.1f) real=(%.1f %.1f %.1f) d=%.1f | vel model=(%.1f %.1f %.1f) real=(%.1f %.1f %.1f) d=%.1f | landing model=(%.1f %.1f %.1f)",
+        g_LastThrow[client].serial, strength, angles[0], Sim_ThrowPitch(angles[0]),
         pos[0], pos[1], pos[2], realPos[0], realPos[1], realPos[2], GetVectorDistance(pos, realPos),
         vel[0], vel[1], vel[2], realVel[0], realVel[1], realVel[2], GetVectorDistance(vel, realVel),
         end[0], end[1], end[2]);
 }
 
 // The projectile detonated: compare with the prediction.
-void Preview_OnLanded(int client, int nade, const float predicted[3], const float actual[3]) {
+void Preview_OnLanded(int client, int nade, const float predicted[3], const float actual[3], float strength) {
     float error = GetVectorDistance(predicted, actual);
     g_ErrCount[client]++;
     g_ErrSum[client] += error;
@@ -303,9 +338,12 @@ void Preview_OnLanded(int client, int nade, const float predicted[3], const floa
     if (error > g_ErrMax[client]) {
         g_ErrMax[client] = error;
     }
+    int group = StrengthGroup(strength);
+    g_ErrStrCount[client][group]++;
+    g_ErrStrSum[client][group] += error;
 
-    LogDebug("prediction error: %N nade=%s error=%.1f (dz %.1f) predicted=(%.1f %.1f %.1f) actual=(%.1f %.1f %.1f) | session: %d throws, average %.1f",
-        client, g_NadeKey[nade], error, actual[2] - predicted[2], predicted[0], predicted[1], predicted[2], actual[0], actual[1], actual[2],
+    LogDebug("prediction error: %N nade=%s strength=%.2f error=%.1f (dz %.1f) predicted=(%.1f %.1f %.1f) actual=(%.1f %.1f %.1f) | session: %d throws, average %.1f",
+        client, g_NadeKey[nade], strength, error, actual[2] - predicted[2], predicted[0], predicted[1], predicted[2], actual[0], actual[1], actual[2],
         g_ErrCount[client], g_ErrSum[client] / float(g_ErrCount[client]));
 
     // Called from OnGameFrame (tracer): check the phrase first.
@@ -321,6 +359,23 @@ void Preview_TellStats(int client) {
     }
     NP_Print(client, "%t", "Prediction Stats", g_ErrCount[client],
         g_ErrSum[client] / float(g_ErrCount[client]), g_ErrMax[client], g_ErrLast[client]);
+
+    // By buttons, once there are throws other than plain left click (nadethrow).
+    if (g_ErrStrCount[client][STRENGTH_MEDIUM] == 0 && g_ErrStrCount[client][STRENGTH_LIGHT] == 0) {
+        return;
+    }
+    char line[192], part[64];
+    line[0] = '\0';
+    for (int group = 0; group < 3; group++) {
+        int count = g_ErrStrCount[client][group];
+        if (count == 0) {
+            continue;
+        }
+        FormatEx(part, sizeof(part), "%s%T: %d / %.1f", (line[0] != '\0') ? "; " : "", g_StrengthPhrase[group], client,
+            count, g_ErrStrSum[client][group] / float(count));
+        StrCat(line, sizeof(line), part);
+    }
+    NP_Print(client, "%t", "Prediction By Buttons", line);
 }
 
 public Action Command_Preview(int client, int args) {
@@ -355,4 +410,8 @@ void Preview_ResetStats(int client) {
     g_ErrSum[client] = 0.0;
     g_ErrMax[client] = 0.0;
     g_ErrLast[client] = 0.0;
+    for (int group = 0; group < 3; group++) {
+        g_ErrStrCount[client][group] = 0;
+        g_ErrStrSum[client][group] = 0.0;
+    }
 }

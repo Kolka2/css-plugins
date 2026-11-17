@@ -235,3 +235,17 @@
 - [ ] У лайнапа jumpthrow в подсказке тип «jumpthrow» и строка с биндом; при загруженном `nadethrow` — бинд с `-attack2`.
 - [ ] Файл лайнапов: `"throw" "jumpthrow"` / `"runjumpthrow"`; старые значения (`jump`, `runjump`) читаются как раньше.
 - [ ] **CSS-VERIFY** (`throws.sp`, Throws_IsJumpthrow): с `nadethrow` jumpthrow с ПКМ и ЛКМ+ПКМ (бинд с `-attack2`) тоже определяется как jumpthrow: буфер пишет кнопки в `OnPlayerRunCmdPost`, после подмены `IN_ATTACK2` → `IN_ATTACK` в `nadethrow`.
+
+## Этап 11. Поддержка `nadethrow`
+
+Конфигурация: `nadepractice` + `nadethrow`. В логе SourceMod при загрузке строка `[nadepractice] <версия>, nadethrow: yes`; без `nadethrow` — `nadethrow: no`, и всё работает как раньше (сила всегда 1.0).
+
+- [ ] Броски ЛКМ / ЛКМ+ПКМ / ПКМ: в debug-логе `nadethrow: ... strength 1.00 / 0.50 / 0.00` и та же сила в строке `throw #N ... strength=`.
+- [ ] Начальная скорость снаряда в `throw #N` — уже после поправки `nadethrow` (сверить с `nadethrow_debug.log`: скорость «после» совпадает с `projvel`).
+- [ ] `!save` броска ПКМ: в файле `"strength" "0.000000"`; тип в чате и в меню — «стоя, ПКМ». Старый файл без `strength` читается, сила 1.0.
+- [ ] Подсказка лайнапа ПКМ: строка «Кнопки: ПКМ». Зажать ЛКМ — «Кнопки: ПКМ (сейчас ЛКМ)», «ГОТОВО» нет; зажать ПКМ — «Кнопки: ПКМ - OK», при позиции и прицеле в допуске — «ГОТОВО».
+- [ ] Без `nadethrow` у лайнапа ПКМ — предупреждение «Для этого лайнапа нужен плагин nadethrow».
+- [ ] Предпросмотр: пока чека выдернута, линия меняется при переключении ЛКМ / ЛКМ+ПКМ / ПКМ (короче и ниже при слабом броске); без чеки — как при ЛКМ.
+- [ ] Сверка: `!preverror` после бросков разной силы — вторая строка «По кнопкам (бросков / средняя ошибка)»; в debug-логе `predict #N: strength ...` и `prediction error: ... strength=`.
+- [ ] **CSS-VERIFY** (`throws.sp`, Nadethrow_OnGrenadeThrown): `nadethrow` не меняет скорость снарядов повтора — в debug-логе при `!last`/`!show` строка `nadethrow: replay projectile ... (unchanged)`, а не `(CHANGED by nadethrow)`. Особенно: `!last` сразу после броска ПКМ.
+- [ ] Выгрузить `nadethrow` при запущенном режиме (`sm plugins unload nadethrow`): ошибок нет, броски работают с силой 1.0 (`throw: ... no nadethrow notification` не появляется, так как библиотеки нет).

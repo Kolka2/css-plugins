@@ -424,4 +424,32 @@
     {
         "ru"        "Бинд: alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump"
     }
+    "Strength Full"
+    {
+        "ru"        "ЛКМ"
+    }
+    "Strength Medium"
+    {
+        "ru"        "ЛКМ+ПКМ"
+    }
+    "Strength Light"
+    {
+        "ru"        "ПКМ"
+    }
+    "Hint Buttons"
+    {
+        "ru"        "Кнопки"
+    }
+    "Hint Buttons Now"
+    {
+        "ru"        "сейчас"
+    }
+    "Hint Need Nadethrow"
+    {
+        "ru"        "Для этого лайнапа нужен плагин nadethrow (слабый бросок), он не загружен."
+    }
+    "Prediction By Buttons"
+    {
+        "ru"        "По кнопкам (бросков / средняя ошибка): {1}"
+    }
 }

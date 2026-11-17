@@ -443,4 +443,33 @@
     {
         "en"        "Bind: alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump"
     }
+    "Strength Full"
+    {
+        "en"        "LMB"
+    }
+    "Strength Medium"
+    {
+        "en"        "LMB+RMB"
+    }
+    "Strength Light"
+    {
+        "en"        "RMB"
+    }
+    "Hint Buttons"
+    {
+        "en"        "Buttons"
+    }
+    "Hint Buttons Now"
+    {
+        "en"        "now"
+    }
+    "Hint Need Nadethrow"
+    {
+        "en"        "This lineup needs the nadethrow plugin (weaker throw), it is not loaded."
+    }
+    "Prediction By Buttons"
+    {
+        "#format"   "{1:s}"
+        "en"        "By buttons (throws / average error): {1}"
+    }
 }

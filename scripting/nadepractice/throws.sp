@@ -87,6 +87,7 @@ void Throws_Snapshot(int client, int nade) {
     g_LastThrow[client].buttons = GetClientButtons(client);
     g_LastThrow[client].flags = flags;
     g_LastThrow[client].throwType = type;
+    g_LastThrow[client].strength = 1.0;     // nadethrow tells the real one a moment later
     g_LastThrow[client].hasProj = false;
     g_LastThrow[client].hasDetonation = false;
     g_LastThrow[client].pathCount = 0;
@@ -170,6 +171,36 @@ bool Throws_FindStart(int client, int type, float start[3]) {
 }
 
 public void Throws_Frame_Init(int ref) {
+    Throws_Process(ref, false);
+}
+
+// With nadethrow the projectile is final only after its notification; one frame more at most.
+public void Throws_Frame_Retry(int ref) {
+    Throws_Process(ref, true);
+}
+
+// nadethrow has adjusted (or left alone) a projectile: its strength and the final initial
+// position and velocity. The notification comes after the adjustment, while the order of
+// RequestFrame callbacks between plugins is not defined, so the values are taken here.
+public void Nadethrow_OnGrenadeThrown(int client, int projectile, float strength) {
+    if (!g_bActive || !IsHuman(client) || projectile <= MaxClients || projectile > MAX_EDICTS) {
+        return;
+    }
+    // Replay projectiles have an owner too, so nadethrow sees them; they are not throws.
+    // CSS-VERIFY: nadethrow does not change the velocity of replay projectiles (strength 1.00 here).
+    if (g_ReplayOwner[projectile] != 0 || g_bReplaySpawning) {
+        LogDebug("nadethrow: replay projectile %d ignored, strength %.2f%s", projectile, strength,
+            (strength < 1.0) ? " (CHANGED by nadethrow)" : " (unchanged)");
+        return;
+    }
+    g_NtRef[client] = EntIndexToEntRef(projectile);
+    g_NtStrength[client] = strength;
+    GetEntityOrigin(projectile, g_NtPos[client]);
+    GetEntityVelocity(projectile, g_NtVel[client]);
+    LogDebug("nadethrow: %N projectile %d strength %.2f", client, projectile, strength);
+}
+
+void Throws_Process(int ref, bool retry) {
     int entity = EntRefToEntIndex(ref);
     if (!g_bActive || entity == INVALID_ENT_REFERENCE || !IsValidEntity(entity)) {
         return;
@@ -195,6 +226,13 @@ public void Throws_Frame_Init(int ref) {
         return;     // a bot or a projectile without an owner: not ours
     }
 
+    // nadethrow: its notification carries the strength and the adjusted projectile.
+    bool fromNadethrow = (g_NtRef[owner] == ref);
+    if (!fromNadethrow && !retry && IsNadethrowEnabled()) {
+        RequestFrame(Throws_Frame_Retry, ref);
+        return;
+    }
+
     bool late = (g_PendingThrowRef[owner] != ref);
     if (late) {
         Throws_Snapshot(owner, nade);
@@ -202,15 +240,29 @@ public void Throws_Frame_Init(int ref) {
     g_PendingThrowRef[owner] = 0;
 
     float pos[3], vel[3];
-    GetEntityOrigin(entity, pos);
-    bool hasVel = GetEntityVelocity(entity, vel);
+    bool hasVel;
+    float strength = 1.0;
+    if (fromNadethrow) {
+        pos = g_NtPos[owner];
+        vel = g_NtVel[owner];
+        strength = g_NtStrength[owner];
+        hasVel = true;
+        g_NtRef[owner] = 0;
+    } else {
+        GetEntityOrigin(entity, pos);
+        hasVel = GetEntityVelocity(entity, vel);
+        if (retry) {
+            LogDebug("throw: %N, no nadethrow notification for projectile %d, strength taken as 1.0", owner, entity);
+        }
+    }
 
     g_LastThrow[owner].projOrigin = pos;
     g_LastThrow[owner].projVelocity = vel;
     g_LastThrow[owner].hasProj = hasVel;
+    g_LastThrow[owner].strength = strength;
 
-    LogDebug("throw #%d: %N nade=%s type=%s late=%d player=(%.1f %.1f %.1f) ang=(%.2f %.2f) plvel=(%.1f %.1f %.1f) proj=(%.1f %.1f %.1f) projvel=(%.1f %.1f %.1f) start=%s(%.1f %.1f %.1f)",
-        g_LastThrow[owner].serial, owner, g_NadeKey[nade], g_ThrowKey[g_LastThrow[owner].throwType], late,
+    LogDebug("throw #%d: %N nade=%s type=%s strength=%.2f late=%d player=(%.1f %.1f %.1f) ang=(%.2f %.2f) plvel=(%.1f %.1f %.1f) proj=(%.1f %.1f %.1f) projvel=(%.1f %.1f %.1f) start=%s(%.1f %.1f %.1f)",
+        g_LastThrow[owner].serial, owner, g_NadeKey[nade], g_ThrowKey[g_LastThrow[owner].throwType], strength, late,
         g_LastThrow[owner].origin[0], g_LastThrow[owner].origin[1], g_LastThrow[owner].origin[2],
         g_LastThrow[owner].angles[0], g_LastThrow[owner].angles[1],
         g_LastThrow[owner].velocity[0], g_LastThrow[owner].velocity[1], g_LastThrow[owner].velocity[2],

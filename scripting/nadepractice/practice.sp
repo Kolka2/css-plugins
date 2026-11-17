@@ -496,8 +496,8 @@ void Practice_Back(int client) {
     angles[2] = 0.0;
     TeleportEntity(client, origin, angles, view_as<float>({ 0.0, 0.0, 0.0 }));
     Movement_Clear(client);
-    char throwName[48];
-    ThrowName(client, g_LastThrow[client].throwType, throwName, sizeof(throwName));
+    char throwName[64];
+    ThrowNameEx(client, g_LastThrow[client].throwType, g_LastThrow[client].strength, throwName, sizeof(throwName));
     NP_Print(client, "%t", "Returned Back", throwName);
 }
 

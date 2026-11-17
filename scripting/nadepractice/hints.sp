@@ -305,6 +305,9 @@ void Hints_Frame(int client, float now) {
     if (!PhraseExists("Hint Start") || !PhraseExists("Hint Release") || !PhraseExists("Hint Aim")
         || !PhraseExists("Hint Throw") || !PhraseExists("Hint Ready") || !PhraseExists("Hint No Start")
         || !PhraseExists("Hint Alias") || !PhraseExists("Hint Alias Nadethrow")
+        || !PhraseExists("Hint Buttons") || !PhraseExists("Hint Buttons Now") || !PhraseExists("Hint Need Nadethrow")
+        || !PhraseExists(g_StrengthPhrase[STRENGTH_FULL]) || !PhraseExists(g_StrengthPhrase[STRENGTH_MEDIUM])
+        || !PhraseExists(g_StrengthPhrase[STRENGTH_LIGHT])
         || !PhraseExists(g_NadePhrase[lineup.nade]) || !PhraseExists(g_ThrowPhrase[lineup.throwType])) {
         return;
     }
@@ -335,11 +338,16 @@ void Hints_Frame(int client, float now) {
     float tol = g_cvHintAngleTol.FloatValue;
     bool pitchOk = FloatAbs(dPitch) <= tol;
     bool yawOk = FloatAbs(dYaw) <= tol;
-    bool ready = posOk && pitchOk && yawOk;
+    // Buttons (nadethrow): while the pin is pulled the current strength must match the lineup's.
+    // Without the pin pulled only a plain left click lineup counts as matching.
+    int needGroup = StrengthGroup(lineup.strength);
+    float current = GetCurrentStrength(client);
+    bool buttonsOk = (current >= 0.0) ? (StrengthGroup(current) == needGroup) : (needGroup == STRENGTH_FULL);
+    bool ready = posOk && pitchOk && yawOk && buttonsOk;
 
     bool unicode = g_cvHintUnicode.BoolValue;
-    char posLine[80], aimLine[96], throwName[48], text[400];
-    FormatEx(throwName, sizeof(throwName), "%T", g_ThrowPhrase[lineup.throwType], client);
+    char posLine[80], aimLine[96], throwName[64], text[512];
+    ThrowNameEx(client, lineup.throwType, lineup.strength, throwName, sizeof(throwName));
     char posPhrase[16];
     strcopy(posPhrase, sizeof(posPhrase), atStart ? "Hint Start" : "Hint Release");
 
@@ -372,6 +380,22 @@ void Hints_Frame(int client, float now) {
 
     FormatEx(text, sizeof(text), "%s [%T]\n%T: %s\n%s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
         "Hint Throw", client, throwName, posLine, aimLine);
+    if (IsNadethrowEnabled() || needGroup != STRENGTH_FULL) {
+        char buttonsLine[96];
+        if (current >= 0.0 && buttonsOk) {
+            FormatEx(buttonsLine, sizeof(buttonsLine), "%T: %T - OK", "Hint Buttons", client, g_StrengthPhrase[needGroup], client);
+        } else if (current >= 0.0) {
+            FormatEx(buttonsLine, sizeof(buttonsLine), "%T: %T (%T %T)", "Hint Buttons", client, g_StrengthPhrase[needGroup], client,
+                "Hint Buttons Now", client, g_StrengthPhrase[StrengthGroup(current)], client);
+        } else {
+            FormatEx(buttonsLine, sizeof(buttonsLine), "%T: %T", "Hint Buttons", client, g_StrengthPhrase[needGroup], client);
+        }
+        Format(text, sizeof(text), "%s\n%s", text, buttonsLine);
+    }
+    // A weaker throw is impossible without nadethrow.
+    if (needGroup != STRENGTH_FULL && !IsNadethrowEnabled()) {
+        Format(text, sizeof(text), "%s\n%T", text, "Hint Need Nadethrow", client);
+    }
     // A run-up throw without a start: the release point alone does not tell where to begin.
     if (!lineup.hasStart && IsRunThrow(lineup.throwType)) {
         Format(text, sizeof(text), "%s\n%T", text, "Hint No Start", client);

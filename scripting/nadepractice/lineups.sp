@@ -72,6 +72,8 @@ void Lineups_Load() {
             lineup.angles = vec;
             kv.GetVector("eye", vec);
             lineup.eye = vec;
+            // strength is new (stage 11, nadethrow); older files throw with left click.
+            lineup.strength = kv.GetFloat("strength", 1.0);
             // start_origin is new (stage 9); older files have no start: hints lead to the release point.
             kv.GetString("start_origin", buffer, sizeof(buffer));
             lineup.hasStart = buffer[0] != '\0';
@@ -144,6 +146,7 @@ bool Lineups_Save() {
         kv.SetVector("angles", vec);
         vec = lineup.eye;
         kv.SetVector("eye", vec);
+        kv.SetFloat("strength", lineup.strength);
         if (lineup.hasStart) {
             vec = lineup.startOrigin;
             kv.SetVector("start_origin", vec);
@@ -284,9 +287,9 @@ void Lineups_Goto(int client, int index) {
     Practice_SwitchToNade(client, lineup.nade, "goto");
 
     Hints_Select(client, lineup.id);
-    char nadeName[48], throwName[48];
+    char nadeName[48], throwName[64];
     NadeName(client, lineup.nade, nadeName, sizeof(nadeName));
-    ThrowName(client, lineup.throwType, throwName, sizeof(throwName));
+    ThrowNameEx(client, lineup.throwType, lineup.strength, throwName, sizeof(throwName));
     NP_Print(client, "%t", "Lineup Goto", lineup.name, nadeName, throwName);
     if (lineup.desc[0] != '\0') {
         NP_Print(client, "%s", lineup.desc);
@@ -371,6 +374,7 @@ public Action Command_Save(int client, int args) {
     lineup.origin = g_LastThrow[client].origin;
     lineup.angles = g_LastThrow[client].angles;
     lineup.eye = g_LastThrow[client].eye;
+    lineup.strength = g_LastThrow[client].strength;
     lineup.hasStart = g_LastThrow[client].hasStart;
     lineup.startAuto = g_LastThrow[client].startAuto;
     lineup.startOrigin = g_LastThrow[client].startOrigin;
@@ -388,10 +392,11 @@ public Action Command_Save(int client, int args) {
     Lineups_Save();
     Hints_Select(client, lineup.id);
 
-    LogDebug("lineups: %N saved \"%s\" nade=%s type=%s path=%d", client, name, g_NadeKey[lineup.nade], g_ThrowKey[lineup.throwType], lineup.pathCount);
-    char nadeName[48], throwName[48];
+    LogDebug("lineups: %N saved \"%s\" nade=%s type=%s strength=%.2f path=%d", client, name, g_NadeKey[lineup.nade],
+        g_ThrowKey[lineup.throwType], lineup.strength, lineup.pathCount);
+    char nadeName[48], throwName[64];
     NadeName(client, lineup.nade, nadeName, sizeof(nadeName));
-    ThrowName(client, lineup.throwType, throwName, sizeof(throwName));
+    ThrowNameEx(client, lineup.throwType, lineup.strength, throwName, sizeof(throwName));
     NP_Print(client, "%t", "Lineup Saved", name, nadeName, throwName);
     if (!lineup.hasStart && IsRunThrow(lineup.throwType)) {
         NP_Print(client, "%t", "Hint No Start");
@@ -593,13 +598,14 @@ void Lineups_ShowListMenu(int client, int firstItem = 0) {
     menu.SetTitle("%T", "Lineups List Title", client);
     menu.ExitBackButton = true;
 
-    char text[128], info[16];
+    char text[160], info[16], throwName[64];
     for (int i = 0; i < order.Length; i++) {
         order.GetArray(i, entry);
         g_Lineups.GetArray(entry[1], lineup);
         IntToString(lineup.id, info, sizeof(info));
-        FormatEx(text, sizeof(text), "%s [%T, %T] %d u", lineup.name, g_NadePhrase[lineup.nade], client,
-            g_ThrowPhrase[lineup.throwType], client, RoundToNearest(view_as<float>(entry[0])));
+        ThrowNameEx(client, lineup.throwType, lineup.strength, throwName, sizeof(throwName));
+        FormatEx(text, sizeof(text), "%s [%T, %s] %d u", lineup.name, g_NadePhrase[lineup.nade], client,
+            throwName, RoundToNearest(view_as<float>(entry[0])));
         menu.AddItem(info, text);
     }
     delete order;
@@ -637,8 +643,10 @@ void Lineups_ShowItemMenu(int client) {
     Menu menu = new Menu(MenuHandler_LineupsItem);
     char startInfo[64];
     FormatEx(startInfo, sizeof(startInfo), "%T", !lineup.hasStart ? "Start None" : (lineup.startAuto ? "Start Auto" : "Start Manual"), client);
-    menu.SetTitle("%s\n%T, %T\n%T: %s\n%T: %s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
-        g_ThrowPhrase[lineup.throwType], client, "Lineup Start", client, startInfo,
+    char throwName[64];
+    ThrowNameEx(client, lineup.throwType, lineup.strength, throwName, sizeof(throwName));
+    menu.SetTitle("%s\n%T, %s\n%T: %s\n%T: %s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
+        throwName, "Lineup Start", client, startInfo,
         "Lineup Author", client, lineup.author, lineup.desc);
     menu.ExitBackButton = true;
 

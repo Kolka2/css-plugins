@@ -85,6 +85,12 @@ public Plugin myinfo = {
 #define MARKER_COUNT  3
 char g_MarkerPhrase[MARKER_COUNT][] = { "Marker Frame", "Marker Cross", "Marker Sprite" };
 
+// Throw strength groups (nadethrow): which buttons.
+#define STRENGTH_FULL   0   // left click, 1.0
+#define STRENGTH_MEDIUM 1   // left + right click, 0.5
+#define STRENGTH_LIGHT  2   // right click, 0.0
+char g_StrengthPhrase[3][] = { "Strength Full", "Strength Medium", "Strength Light" };
+
 // Target of the position check in hints.
 #define TARGET_AUTO    0
 #define TARGET_START   1
@@ -127,6 +133,7 @@ enum struct ThrowInfo {
     int buttons;
     int flags;
     int throwType;
+    float strength;         // nadethrow throw strength: 1.0 left, 0.5 left + right, 0.0 right click
     bool hasStart;          // where the run-up / jump started; none = start at the release point
     bool startAuto;         // the start was found automatically (false = set with !setstart)
     float startOrigin[3];
@@ -166,6 +173,7 @@ enum struct Tracked {
     bool hasVel;
     bool hasPrediction;
     float predicted[3];     // where the model expects the detonation
+    float strength;         // throw strength used by the prediction
 }
 
 // Lineup from the database.
@@ -177,6 +185,7 @@ enum struct Lineup {
     float origin[3];        // release point: player position (feet) when the grenade left the hand
     float angles[3];
     float eye[3];
+    float strength;         // nadethrow throw strength (1.0 in files without the key)
     bool hasStart;          // where to stand before the run-up / jump; none = at the release point
     bool startAuto;
     float startOrigin[3];
@@ -277,6 +286,12 @@ bool g_bActive;
 bool g_bLateLoad;
 bool g_bHasNadethrow;
 
+// nadethrow notification for the last projectile of each player
+int g_NtRef[MAXPLAYERS + 1];
+float g_NtStrength[MAXPLAYERS + 1];
+float g_NtPos[MAXPLAYERS + 1][3];
+float g_NtVel[MAXPLAYERS + 1][3];
+
 int g_BeamSprite = -1;
 int g_HaloSprite = -1;
 int g_GlowSprite = -1;
@@ -362,6 +377,8 @@ int g_ErrCount[MAXPLAYERS + 1];
 float g_ErrSum[MAXPLAYERS + 1];
 float g_ErrMax[MAXPLAYERS + 1];
 float g_ErrLast[MAXPLAYERS + 1];
+int g_ErrStrCount[MAXPLAYERS + 1][3];       // per strength (STRENGTH_*)
+float g_ErrStrSum[MAXPLAYERS + 1][3];
 
 #include "nadepractice/util.sp"
 #include "nadepractice/movement.sp"
@@ -524,6 +541,22 @@ bool IsNadethrowEnabled() {
     return g_bHasNadethrow && Nadethrow_IsEnabled();
 }
 
+// Current throw strength while the pin is pulled (0.0-1.0), otherwise -1.0.
+float GetCurrentStrength(int client) {
+    if (!IsNadethrowEnabled()) {
+        return -1.0;
+    }
+    return Nadethrow_GetThrowStrength(client);
+}
+
+float GetNadethrowMinScale() {
+    return g_bHasNadethrow ? Nadethrow_GetMinScale() : 1.0;
+}
+
+float GetNadethrowZOffset() {
+    return g_bHasNadethrow ? Nadethrow_GetZOffset() : 0.0;
+}
+
 public void OnMapStart() {
     PrecacheAssets();
     ResetAllState();
@@ -609,6 +642,7 @@ void ResetClientState(int client) {
     g_PendingThrowRef[client] = 0;
     g_NextReplay[client] = 0.0;
     g_bHasDeathPos[client] = false;
+    g_NtRef[client] = 0;
     g_TeWindowEnd[client] = 0.0;
     g_TeRateCheck[client] = 0.0;
     g_TeInterval[client] = 0.0;
