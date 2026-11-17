@@ -19,10 +19,11 @@ Only CS:S is supported.
 | Plugin | What it does | Status | Docs |
 |---|---|---|---|
 | `nadethrow` | CS:GO-style grenade throws: left click, left + right click and right click give throws of different strength. Has an API for other plugins. | Complete. Core mechanic tested on a server, the rest of the checklist is pending. | [README](docs/nadethrow/README.md), [checklist](docs/nadethrow/TEST_CHECKLIST.md) |
+| `nadepractice` | A grenade practice mode: infinite grenades without damage, a tracer for real throws, a per-map lineup database with "where to stand / where to aim" hints, throw replay and a trajectory preview before the throw. | First version tested on a server; rework based on the feedback is in progress. | [README](docs/nadepractice/README.md), [checklist](docs/nadepractice/TEST_CHECKLIST.md) |
 | `teammoney` | Shows each player the money, grenades and defuse kits of their team during freeze time. | Complete, awaiting verification on a server. | [README](docs/teammoney/README.md), [checklist](docs/teammoney/TEST_CHECKLIST.md) |
 | `warmup` | A warmup for CS:S, which has none built in: endless round, respawn, $16000 and open buying, no bomb. Game modes drive it through an API; also works on its own. Moved from [css-retakes](https://github.com/Kolka2/css-retakes). | Complete. Tested on a server together with Retakes. | [README](docs/warmup/README.md), [checklist](docs/warmup/TEST_CHECKLIST.md) |
 
-Planned: a grenade practice mode (`nadepractice`), saved lineups and executes (`lineups`, `executes`), bot control and smarter bots (`botcontrol`, `botassist`, `botnav`), a silent knife deploy for other players (`knifesound`), fake defuse and grenades while defusing (`defusetweaks`).
+Planned: saved lineups and executes (`lineups`, `executes`), bot control and smarter bots (`botcontrol`, `botassist`, `botnav`), a silent knife deploy for other players (`knifesound`), fake defuse and grenades while defusing (`defusetweaks`).
 
 Player-facing text is translated into English and Russian and shown in each player's own language.
 
