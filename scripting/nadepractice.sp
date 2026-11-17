@@ -6,9 +6,13 @@
  *          selected lineup), the lineup database
  *          (configs/nadepractice/lineups/<map>.cfg), players' money, grenades and
  *          damage while the mode is active, the bot count (bot_quota 0),
- *          its own temporary cvars (listed in Mode_Start).
- * Reads:   game events (player_spawn, *_detonate, player_blind), sv_gravity.
- * Uses:    nothing (warmup integration is planned for later).
+ *          its own temporary cvars (listed in Mode_Start), the flags of the "noclip"
+ *          console command while active (restored on stop), respawning dead players,
+ *          the duration of players' smoke clouds.
+ * Reads:   game events (player_spawn, player_death, player_team, *_detonate, player_blind),
+ *          sv_gravity, cl_updaterate, spawn points of the map.
+ * Uses:    nadethrow (optional: throw strength); gamedata/nadepractice.games.txt
+ *          (optional, owner's exception to ARCHITECTURE.md 2.5: real replay detonation).
  * API:     include/nadepractice.inc
  *
  * Parts (scripting/nadepractice/):
@@ -20,6 +24,12 @@
  *   lineups.sp  - lineup database: file, commands, menus
  *   hints.sp    - hints for the selected lineup
  *   preview.sp  - flight model, preview before the throw, prediction check
+ *   movement.sp - ring buffer of recent movement (run-up start, jumpthrow)
+ *   measure.sp  - flash check (!flash), HE damage, air time
+ *   spawns.sp   - map spawn points (!spawn, !bestspawn, !worstspawn)
+ *   timer.sp    - movement timers (!timer, !timer2)
+ *   smoke.sp    - smoke duration of each thrower
+ *   gamedata.sp - everything that uses gamedata (real replay detonation)
  */
 
 #pragma semicolon 1
@@ -36,7 +46,7 @@
 #include <nadethrow>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "0.1.0"
+#define PLUGIN_VERSION "0.2.0"
 
 public Plugin myinfo = {
     name        = "[CS:S] Nade Practice",

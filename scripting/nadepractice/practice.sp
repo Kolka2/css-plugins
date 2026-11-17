@@ -699,6 +699,7 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
         NP_Print(client, "%t", "Help Line 1");
         NP_Print(client, "%t", "Help Line 2");
         NP_Print(client, "%t", "Help Line 3");
+        NP_Print(client, "%t", "Help Line 4");
     }
 
     if (reopen) {

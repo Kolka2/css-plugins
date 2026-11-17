@@ -139,7 +139,7 @@
     }
     "Help Line 1"
     {
-        "en"        "!noclip !back !last !clear !tracer !preview !preverror !hints !noflash"
+        "en"        "!noclip !back !last !clear !tracer !preview !preverror [reset] !hints !noflash !hands"
     }
     "Help Line 2"
     {
@@ -147,7 +147,7 @@
     }
     "Help Line 3"
     {
-        "en"        "For the selected lineup: !delete, !rename <new name>, !desc <text>"
+        "en"        "For the selected lineup: !delete, !rename <new name>, !desc <text>, !setstart, !setrelease, !setaim, !nostart"
     }
     "Usage Save"
     {
@@ -676,5 +676,9 @@
     "Smoke Time Default"
     {
         "en"        "game default"
+    }
+    "Help Line 4"
+    {
+        "en"        "!flash [off] - flash check point; !spawn [t|ct] [N], !bestspawn, !worstspawn; !timer, !timer2"
     }
 }
