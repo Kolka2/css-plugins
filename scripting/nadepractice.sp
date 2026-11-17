@@ -253,7 +253,7 @@ int g_TeTick[MAXPLAYERS + 1];
 int g_TeLeft[MAXPLAYERS + 1];
 
 // player state
-bool g_bNoclip[MAXPLAYERS + 1];
+int g_NoclipCmdFlags = -1;      // original flags of the "noclip" command while the mode runs, -1 = untouched
 bool g_bNoFlash[MAXPLAYERS + 1];
 ThrowInfo g_LastThrow[MAXPLAYERS + 1];
 int g_PendingThrowRef[MAXPLAYERS + 1];
@@ -521,7 +521,6 @@ void PrecacheAssets() {
 }
 
 void ResetClientState(int client) {
-    g_bNoclip[client] = false;
     g_bNoFlash[client] = false;
     g_LastThrow[client].valid = false;
     g_LastThrow[client].hasProj = false;
@@ -590,6 +589,7 @@ bool Mode_Start() {
             Practice_LogViewModel(client, "mode start");
         }
     }
+    Practice_AllowNoclipCommand();
 
     if (g_cvRestartOnStart.BoolValue) {
         // mp_restartgame is a one-shot cvar that resets itself to 0; not saved.

@@ -12,11 +12,14 @@ void Practice_Init() {
     RegConsoleCmd("sm_hands", Command_Hands, "Bring back the first person weapon and hands model");
 
     // sm_noclip may be taken by the funcommands admin command. A command listener runs
-    // before the handlers, so while the mode is active !noclip is ours, and outside
-    // the mode the command goes to funcommands.
-    // CSS-VERIFY: with funcommands.smx loaded, !noclip in the mode toggles our noclip once.
+    // before the handlers, so while the mode is active !noclip (without arguments) is ours,
+    // and outside the mode, or with a target argument, the command goes to funcommands.
+    // Confirmed on the server: in the mode !noclip answers with the NadePractice prefix.
     RegConsoleCmd("sm_noclip", Command_NoclipFallback, "Noclip in the practice mode");
     AddCommandListener(Listener_Noclip, "sm_noclip");
+    // The engine console command "noclip" (often bound to a key) goes through the same code
+    // while the mode is active, so it works without sv_cheats and !noclip never disagrees with it.
+    AddCommandListener(Listener_Noclip, "noclip");
 
     HookEvent("player_blind", Event_PlayerBlind, EventHookMode_Post);
     HookEvent("player_death", Event_PlayerDeath, EventHookMode_Post);
@@ -26,14 +29,45 @@ void Practice_Init() {
     AddCommandListener(Listener_JoinClass, "joinclass");
 }
 
-// The mode stopped: give players back what the mode changed.
+// The mode stopped: give players back what the mode changed. Noclip is turned off for
+// everyone who has it, no matter whether it came from !noclip or the console command.
 void Practice_Stop() {
     for (int client = 1; client <= MaxClients; client++) {
-        if (g_bNoclip[client] && IsClientInGame(client)) {
+        if (IsClientInGame(client) && IsPlayerAlive(client) && GetEntityMoveType(client) == MOVETYPE_NOCLIP) {
             SetEntityMoveType(client, MOVETYPE_WALK);
+            LogDebug("noclip: %N turned off (mode stop)", client);
         }
-        g_bNoclip[client] = false;
     }
+    Practice_RestoreNoclipCommand();
+}
+
+// The "noclip" console command is a cheat command: with sv_cheats 0 the engine may refuse it
+// before any plugin sees it. While the mode runs the cheat flag is removed (our listener
+// handles the command anyway) and restored when the mode stops.
+// CSS-VERIFY: with sv_cheats 0 a bound "noclip" key works in the mode and prints the NadePractice message.
+void Practice_AllowNoclipCommand() {
+    int flags = GetCommandFlags("noclip");
+    if (flags == INVALID_FCVAR_FLAGS) {
+        LogDebug("noclip: console command not found");
+        return;
+    }
+    if (g_NoclipCmdFlags == -1) {
+        g_NoclipCmdFlags = flags;
+    }
+    SetCommandFlags("noclip", flags & ~FCVAR_CHEAT);
+    LogDebug("noclip: command flags %d -> %d", flags, flags & ~FCVAR_CHEAT);
+}
+
+void Practice_RestoreNoclipCommand() {
+    if (g_NoclipCmdFlags != -1) {
+        SetCommandFlags("noclip", g_NoclipCmdFlags);
+        LogDebug("noclip: command flags restored to %d", g_NoclipCmdFlags);
+        g_NoclipCmdFlags = -1;
+    }
+}
+
+bool Practice_HasNoclip(int client) {
+    return GetEntityMoveType(client) == MOVETYPE_NOCLIP;
 }
 
 // Spawn equipment: all three grenades and money.
@@ -41,7 +75,6 @@ void Practice_Equip(int client) {
     if (!IsPlayerAlive(client) || GetClientTeam(client) < CS_TEAM_T) {
         return;
     }
-    g_bNoclip[client] = false;
 
     if (HasEntProp(client, Prop_Send, "m_iAccount")) {
         SetEntProp(client, Prop_Send, "m_iAccount", 16000);
@@ -419,20 +452,26 @@ public void Event_PlayerBlind(Event event, const char[] name, bool dontBroadcast
 // Commands
 // ---------------------------------------------------------------------------
 
-void Practice_ToggleNoclip(int client) {
+// Toggles by the real move type, so !noclip, the menu and the console command always agree.
+void Practice_ToggleNoclip(int client, const char[] source) {
     if (!CanPractice(client)) {
         return;
     }
-    g_bNoclip[client] = !g_bNoclip[client];
-    SetEntityMoveType(client, g_bNoclip[client] ? MOVETYPE_NOCLIP : MOVETYPE_WALK);
-    NP_Print(client, "%t", g_bNoclip[client] ? "Noclip On" : "Noclip Off");
+    bool enable = !Practice_HasNoclip(client);
+    SetEntityMoveType(client, enable ? MOVETYPE_NOCLIP : MOVETYPE_WALK);
+    LogDebug("noclip: %N %s (%s)", client, enable ? "on" : "off", source);
+    NP_Print(client, "%t", enable ? "Noclip On" : "Noclip Off");
 }
 
 public Action Listener_Noclip(int client, const char[] command, int argc) {
     if (!g_bActive || !IsHuman(client)) {
         return Plugin_Continue;
     }
-    Practice_ToggleNoclip(client);
+    // "sm_noclip <target>" is the funcommands admin command for another player: leave it alone.
+    if (argc > 0 && StrEqual(command, "sm_noclip", false)) {
+        return Plugin_Continue;
+    }
+    Practice_ToggleNoclip(client, command);
     return Plugin_Stop;
 }
 
@@ -541,7 +580,7 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_AddPhrase(menu, client, "lineups", "Menu Lineups");
     Menu_AddPhrase(menu, client, "last", "Menu Last");
     Menu_AddPhrase(menu, client, "back", "Menu Back");
-    Menu_AddToggle(menu, client, "noclip", "Menu Noclip", g_bNoclip[client]);
+    Menu_AddToggle(menu, client, "noclip", "Menu Noclip", IsPlayerAlive(client) && Practice_HasNoclip(client));
     Menu_AddPhrase(menu, client, "clear", "Menu Clear");
     Menu_AddToggle(menu, client, "tracer", "Menu Tracer", g_bTracer[client]);
     Menu_AddToggle(menu, client, "preview", "Menu Preview", g_bPreview[client]);
@@ -579,7 +618,7 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
     } else if (StrEqual(info, "back")) {
         Practice_Back(client);
     } else if (StrEqual(info, "noclip")) {
-        Practice_ToggleNoclip(client);
+        Practice_ToggleNoclip(client, "menu");
     } else if (StrEqual(info, "clear")) {
         Tracer_ClearClient(client);
         NP_Print(client, "%t", "Traces Cleared");
