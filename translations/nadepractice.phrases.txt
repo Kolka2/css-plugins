@@ -427,4 +427,20 @@
         "#format"   "{1:s}"
         "en"        "{1}: start removed, hints lead to the release point."
     }
+    "Throw JumpThrow"
+    {
+        "en"        "jumpthrow"
+    }
+    "Throw RunJumpThrow"
+    {
+        "en"        "run + jumpthrow"
+    }
+    "Hint Alias"
+    {
+        "en"        "Bind: alias +jt \"+jump;-attack\"; alias -jt -jump"
+    }
+    "Hint Alias Nadethrow"
+    {
+        "en"        "Bind: alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump"
+    }
 }

@@ -68,6 +68,9 @@ void Throws_Snapshot(int client, int nade) {
     int type;
     if (!(flags & FL_ONGROUND)) {
         type = (speed2d > RUN_SPEED) ? THROW_RUNJUMP : THROW_JUMP;
+        if (Throws_IsJumpthrow(client)) {
+            type = (type == THROW_RUNJUMP) ? THROW_RUNJUMPTHROW : THROW_JUMPTHROW;
+        }
     } else if (flags & FL_DUCKING) {
         type = THROW_CROUCH;
     } else {
@@ -94,6 +97,40 @@ void Throws_Snapshot(int client, int nade) {
     g_LastThrow[client].startOrigin = start;
 }
 
+// Jumpthrow: the throw buttons were released in the tick jump was pressed, or within
+// sm_nadepractice_jumpthrow_ticks of it - what the "+jump; -attack" alias does. The game
+// creates the projectile about 0.1 s after the release, so the release tick is looked up
+// in the movement buffer, not taken at the projectile spawn. With nadethrow the right
+// button throws too, so its release counts as well.
+// CSS-VERIFY: the order in which nadethrow and nadepractice see the buttons. nadethrow
+// replaces IN_ATTACK2 with IN_ATTACK in OnPlayerRunCmd; the buffer records the buttons in
+// OnPlayerRunCmdPost, after every plugin, so it sees the final buttons either way.
+bool Throws_IsJumpthrow(int client) {
+    int mask = IN_ATTACK;
+    if (IsNadethrowEnabled()) {
+        mask |= IN_ATTACK2;
+    }
+    int release = Movement_FindRelease(client, mask, 0.5);
+    if (release == -1) {
+        LogDebug("jumpthrow: %N, release tick not found in the buffer", client);
+        return false;
+    }
+    int maxTicks = g_cvJumpthrowTicks.IntValue;
+    int distance = Movement_JumpPressNear(client, release, maxTicks);
+    LogDebug("jumpthrow: %N, release %d ticks ago, jump press %s%d ticks from it (limit %d)", client, release,
+        (distance == -1) ? "not within " : "", (distance == -1) ? maxTicks : distance, maxTicks);
+    return distance != -1;
+}
+
+// Throw types that start with a run-up / with a jump.
+bool IsRunThrow(int type) {
+    return type == THROW_RUN || type == THROW_RUNJUMP || type == THROW_RUNJUMPTHROW;
+}
+
+bool IsJumpthrowType(int type) {
+    return type == THROW_JUMPTHROW || type == THROW_RUNJUMPTHROW;
+}
+
 // Where the throw started, from the movement buffer:
 //   standing / crouched  - no separate start (the start is the release point);
 //   jump                 - the last tick on the ground before the takeoff;
@@ -105,13 +142,13 @@ bool Throws_FindStart(int client, int type, float start[3]) {
     float lookback = g_cvStartLookback.FloatValue;
     int back = -1;
     switch (type) {
-        case THROW_JUMP: {
+        case THROW_JUMP, THROW_JUMPTHROW: {
             back = Movement_LastOnGround(client, 0);
         }
         case THROW_RUN: {
             back = Movement_FindRunStart(client, 0, speed, lookback);
         }
-        case THROW_RUNJUMP: {
+        case THROW_RUNJUMP, THROW_RUNJUMPTHROW: {
             int takeoff = Movement_LastOnGround(client, 0);
             if (takeoff != -1) {
                 back = Movement_FindRunStart(client, takeoff, speed, lookback);

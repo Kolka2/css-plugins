@@ -31,6 +31,11 @@
 #include <cstrike>
 #include <nadepractice>
 
+// nadethrow (throw strength) is an optional dependency (ARCHITECTURE.md, section 6).
+#undef REQUIRE_PLUGIN
+#include <nadethrow>
+#define REQUIRE_PLUGIN
+
 #define PLUGIN_VERSION "0.1.0"
 
 public Plugin myinfo = {
@@ -56,7 +61,9 @@ public Plugin myinfo = {
 #define THROW_JUMP    2
 #define THROW_RUN     3
 #define THROW_RUNJUMP 4
-#define THROW_COUNT   5
+#define THROW_JUMPTHROW    5    // attack released in the jump tick (+jump; -attack)
+#define THROW_RUNJUMPTHROW 6
+#define THROW_COUNT   7
 
 // Trajectory point kinds: normal, bounce, detonation.
 #define PT_NORMAL   0
@@ -100,8 +107,9 @@ char g_NadeKey[NADE_COUNT][] = { "he", "flash", "smoke" };
 char g_NadePhrase[NADE_COUNT][] = { "Nade HE", "Nade Flash", "Nade Smoke" };
 int g_NadeColor[NADE_COUNT][4] = { { 255, 70, 50, 255 }, { 90, 170, 255, 255 }, { 70, 255, 100, 255 } };
 
-char g_ThrowKey[THROW_COUNT][] = { "stand", "crouch", "jump", "run", "runjump" };
-char g_ThrowPhrase[THROW_COUNT][] = { "Throw Stand", "Throw Crouch", "Throw Jump", "Throw Run", "Throw RunJump" };
+char g_ThrowKey[THROW_COUNT][] = { "stand", "crouch", "jump", "run", "runjump", "jumpthrow", "runjumpthrow" };
+char g_ThrowPhrase[THROW_COUNT][] = { "Throw Stand", "Throw Crouch", "Throw Jump", "Throw Run", "Throw RunJump",
+    "Throw JumpThrow", "Throw RunJumpThrow" };
 
 // ---------------------------------------------------------------------------
 // Types
@@ -229,6 +237,7 @@ ConVar g_cvTraceBounceDv;
 ConVar g_cvEditAccess;
 ConVar g_cvStartSpeed;
 ConVar g_cvStartLookback;
+ConVar g_cvJumpthrowTicks;
 
 // hints
 ConVar g_cvHintInterval;
@@ -266,6 +275,7 @@ char g_DebugLogPath[PLATFORM_MAX_PATH];
 
 bool g_bActive;
 bool g_bLateLoad;
+bool g_bHasNadethrow;
 
 int g_BeamSprite = -1;
 int g_HaloSprite = -1;
@@ -420,6 +430,7 @@ public void OnPluginStart() {
 
     g_cvEditAccess = CreateConVar("sm_nadepractice_edit_access", "0", "Who may change the lineup database: 0 = all players, 1 = admins only (override sm_nadepractice_edit, generic flag by default)", _, true, 0.0, true, 1.0);
     g_cvStartSpeed    = CreateConVar("sm_nadepractice_start_speed", "10.0", "Run-up start: the last point on the ground with horizontal speed below this", _, true, 0.0, true, 250.0);
+    g_cvJumpthrowTicks = CreateConVar("sm_nadepractice_jumpthrow_ticks", "2", "Jumpthrow: the attack is released at most this many ticks from the jump press", _, true, 0.0, true, 16.0);
     g_cvStartLookback = CreateConVar("sm_nadepractice_start_lookback", "3.0", "How many seconds back to look for the run-up start", _, true, 0.5, true, MV_MAX_SECONDS);
 
     g_cvHintInterval  = CreateConVar("sm_nadepractice_hint_interval", "0.25", "Hint update period, seconds", _, true, 0.05, true, 2.0);
@@ -489,8 +500,28 @@ public void OnPluginStart() {
 }
 
 public void OnAllPluginsLoaded() {
+    g_bHasNadethrow = LibraryExists(NADETHROW_LIBRARY);
     // Load report (ARCHITECTURE.md, section 12).
-    LogMessage("[nadepractice] %s, dependencies: none", PLUGIN_VERSION);
+    LogMessage("[nadepractice] %s, nadethrow: %s", PLUGIN_VERSION, g_bHasNadethrow ? "yes" : "no");
+}
+
+public void OnLibraryAdded(const char[] name) {
+    if (StrEqual(name, NADETHROW_LIBRARY)) {
+        g_bHasNadethrow = true;
+        LogDebug("library added: nadethrow");
+    }
+}
+
+public void OnLibraryRemoved(const char[] name) {
+    if (StrEqual(name, NADETHROW_LIBRARY)) {
+        g_bHasNadethrow = false;
+        LogDebug("library removed: nadethrow");
+    }
+}
+
+// nadethrow is loaded and enabled. All calls to nadethrow go through such wrappers.
+bool IsNadethrowEnabled() {
+    return g_bHasNadethrow && Nadethrow_IsEnabled();
 }
 
 public void OnMapStart() {

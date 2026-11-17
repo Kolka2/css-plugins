@@ -393,7 +393,7 @@ public Action Command_Save(int client, int args) {
     NadeName(client, lineup.nade, nadeName, sizeof(nadeName));
     ThrowName(client, lineup.throwType, throwName, sizeof(throwName));
     NP_Print(client, "%t", "Lineup Saved", name, nadeName, throwName);
-    if (!lineup.hasStart && (lineup.throwType == THROW_RUN || lineup.throwType == THROW_RUNJUMP)) {
+    if (!lineup.hasStart && IsRunThrow(lineup.throwType)) {
         NP_Print(client, "%t", "Hint No Start");
     }
     return Plugin_Handled;

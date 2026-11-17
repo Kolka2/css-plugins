@@ -304,6 +304,7 @@ void Hints_Frame(int client, float now) {
     // Called several times a second: check every phrase before formatting.
     if (!PhraseExists("Hint Start") || !PhraseExists("Hint Release") || !PhraseExists("Hint Aim")
         || !PhraseExists("Hint Throw") || !PhraseExists("Hint Ready") || !PhraseExists("Hint No Start")
+        || !PhraseExists("Hint Alias") || !PhraseExists("Hint Alias Nadethrow")
         || !PhraseExists(g_NadePhrase[lineup.nade]) || !PhraseExists(g_ThrowPhrase[lineup.throwType])) {
         return;
     }
@@ -372,8 +373,12 @@ void Hints_Frame(int client, float now) {
     FormatEx(text, sizeof(text), "%s [%T]\n%T: %s\n%s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
         "Hint Throw", client, throwName, posLine, aimLine);
     // A run-up throw without a start: the release point alone does not tell where to begin.
-    if (!lineup.hasStart && (lineup.throwType == THROW_RUN || lineup.throwType == THROW_RUNJUMP)) {
+    if (!lineup.hasStart && IsRunThrow(lineup.throwType)) {
         Format(text, sizeof(text), "%s\n%T", text, "Hint No Start", client);
+    }
+    // A jumpthrow needs a bind; with nadethrow the alias must release the right button too.
+    if (IsJumpthrowType(lineup.throwType)) {
+        Format(text, sizeof(text), "%s\n%T", text, IsNadethrowEnabled() ? "Hint Alias Nadethrow" : "Hint Alias", client);
     }
     if (ready) {
         Format(text, sizeof(text), "%s\n%T", text, "Hint Ready", client, throwName);

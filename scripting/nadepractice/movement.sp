@@ -83,7 +83,7 @@ bool Movement_Get(int client, int back, float entry[MV_SIZE]) {
     return true;
 }
 
-stock int Movement_Buttons(const float entry[MV_SIZE]) {
+int Movement_Buttons(const float entry[MV_SIZE]) {
     return RoundToNearest(entry[MV_BUTTONS]);
 }
 
@@ -94,7 +94,7 @@ bool Movement_OnGround(const float entry[MV_SIZE]) {
 // The tick the throw buttons were released: the newest entry without attack buttons whose
 // older neighbour had them. The game creates the projectile about 0.1 s after that.
 // attackMask: IN_ATTACK, plus IN_ATTACK2 when nadethrow is loaded. Returns "back" or -1.
-stock int Movement_FindRelease(int client, int attackMask, float maxAge) {
+int Movement_FindRelease(int client, int attackMask, float maxAge) {
     float now = GetGameTime();
     float newer[MV_SIZE], older[MV_SIZE];
     for (int back = 0; back + 1 < g_MoveCount[client]; back++) {
@@ -114,7 +114,7 @@ stock int Movement_FindRelease(int client, int attackMask, float maxAge) {
 // The tick jump was pressed (IN_JUMP set, not set in the older neighbour), searching from
 // "from" towards older entries for at most maxTicks ticks, and also up to maxTicks newer.
 // Returns the distance in ticks to "from" (0 = same tick) or -1.
-stock int Movement_JumpPressNear(int client, int from, int maxTicks) {
+int Movement_JumpPressNear(int client, int from, int maxTicks) {
     float newer[MV_SIZE], older[MV_SIZE];
     for (int d = 0; d <= maxTicks; d++) {
         for (int sign = 1; sign >= -1; sign -= 2) {

@@ -408,4 +408,20 @@
     {
         "ru"        "{1}: старт убран, подсказка ведёт к точке броска."
     }
+    "Throw JumpThrow"
+    {
+        "ru"        "jumpthrow"
+    }
+    "Throw RunJumpThrow"
+    {
+        "ru"        "бег + jumpthrow"
+    }
+    "Hint Alias"
+    {
+        "ru"        "Бинд: alias +jt \"+jump;-attack\"; alias -jt -jump"
+    }
+    "Hint Alias Nadethrow"
+    {
+        "ru"        "Бинд: alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump"
+    }
 }
