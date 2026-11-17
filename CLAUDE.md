@@ -52,5 +52,7 @@
 | `nadepractice` | режим | задание `tasks/PRACTICE_TASK.md` |
 | `lineups`, `botcontrol`, `executes` | сервисы, режим | черновик `tasks/EXECUTES_TASK.md` |
 | `botassist`, `botnav` | утилита, сервис | черновик `tasks/BOTS_TASK.md` |
+| `knifesound` | утилита | задание `tasks/KNIFESOUND_TASK.md` |
+| `defusetweaks` | утилита | задание `tasks/DEFUSE_TASK.md` (G — готово к работе, H — черновик) |
 
 Обновляй эту таблицу, когда плагин меняет состояние, и вместе с ней — таблицы плагинов в `README.md` и `README.ru.md`.
