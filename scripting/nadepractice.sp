@@ -4,7 +4,7 @@
  * Layer:   mode
  * Owns:    practice state of every player (noclip, last throw, trajectories,
  *          selected lineup), the lineup database
- *          (configs/nadepractice/lineups/<map>.cfg), players' money, grenades and
+ *          (configs/nadepractice/lineups/<map>.cfg), players' money, buying (m_bInBuyZone), grenades and
  *          damage while the mode is active, the bot count (bot_quota 0),
  *          its own temporary cvars (listed in Mode_Start), the flags of the "noclip"
  *          console command while active (restored on stop), respawning dead players,
@@ -249,6 +249,8 @@ ConVar g_cvAirtimeReport;
 ConVar g_cvTimerSpeed;
 ConVar g_cvTimerStopTicks;
 ConVar g_cvRespawnDelay;
+ConVar g_cvBuyAnywhere;
+ConVar g_cvInfiniteMoney;
 ConVar g_cvRespawnAtDeath;
 
 // replay
@@ -496,6 +498,8 @@ public void OnPluginStart() {
     g_cvTimerSpeed     = CreateConVar("sm_nadepractice_timer_speed", "10.0", "!timer: horizontal speed above which the player counts as moving", _, true, 0.1, true, 250.0);
     g_cvTimerStopTicks = CreateConVar("sm_nadepractice_timer_stop_ticks", "8", "!timer: ticks in a row below the speed threshold that count as a stop", _, true, 1.0, true, 128.0);
     g_cvAirtimeReport = CreateConVar("sm_nadepractice_airtime_report", "1", "Report the grenade air time after each detonation (default for each player)", _, true, 0.0, true, 1.0);
+    g_cvBuyAnywhere    = CreateConVar("sm_nadepractice_buy_anywhere", "1", "Players can buy anywhere on the map while the mode is active, not only in the buy zones", _, true, 0.0, true, 1.0);
+    g_cvInfiniteMoney  = CreateConVar("sm_nadepractice_infinite_money", "1", "Money goes back to 16000 after every purchase while the mode is active", _, true, 0.0, true, 1.0);
     g_cvRespawnDelay   = CreateConVar("sm_nadepractice_respawn_delay", "1.0", "Respawn dead players after this many seconds (0 = no respawn)", _, true, 0.0, true, 30.0);
     g_cvRespawnAtDeath = CreateConVar("sm_nadepractice_respawn_at_death", "0", "After a respawn, put the player back where they died, with the same view angles", _, true, 0.0, true, 1.0);
 
@@ -685,6 +689,7 @@ public void OnPluginEnd() {
 public void OnClientPutInServer(int client) {
     ResetClientState(client);
     SDKHook(client, SDKHook_OnTakeDamage, Practice_OnTakeDamage);
+    SDKHook(client, SDKHook_PostThinkPost, Practice_PostThinkPost);
 }
 
 public void OnClientDisconnect(int client) {

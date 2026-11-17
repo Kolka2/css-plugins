@@ -163,11 +163,16 @@ public void Frame_RespawnAfterTeam(int userid) {
 }
 
 // Respawns a dead human in T/CT. The usual equipment follows from player_spawn.
-// CSS-VERIFY: CS_RespawnPlayer right after player_team (before the class is picked) gives a
-// normal player model; if not, the respawn after joinclass is the one that matters.
+// A player who joined a team cannot spawn until the class (model) menu is answered: m_iClass
+// stays 0 until then (checked on a live CS:S server in the warmup plugin). Such a player is
+// respawned after joinclass instead.
 void Practice_TryRespawn(int client, const char[] reason) {
     if (!g_bActive || g_cvRespawnDelay.FloatValue <= 0.0 || !IsHuman(client)
         || GetClientTeam(client) < CS_TEAM_T || IsPlayerAlive(client)) {
+        return;
+    }
+    if (HasEntProp(client, Prop_Send, "m_iClass") && GetEntProp(client, Prop_Send, "m_iClass") == 0) {
+        LogDebug("respawn: %N (%s) waits for the class menu", client, reason);
         return;
     }
     CS_RespawnPlayer(client);
@@ -184,6 +189,36 @@ void Practice_TryRespawn(int client, const char[] reason) {
     }
     LogDebug("respawn: %N (%s)%s", client, reason, g_bHasDeathPos[client] ? ", at the death point" : "");
     g_bHasDeathPos[client] = false;
+}
+
+// ---------------------------------------------------------------------------
+// Buying anywhere and money. The same approach as sm_warmup_buy_anywhere of the warmup
+// plugin, checked there on a live CS:S server: forcing m_bInBuyZone to 1 every think lets the
+// player open the buy menu anywhere (the game resets it outside real buy zones by itself).
+// ---------------------------------------------------------------------------
+
+public void Practice_PostThinkPost(int client) {
+    if (!g_bActive || !g_cvBuyAnywhere.BoolValue || !IsPlayerAlive(client)) {
+        return;
+    }
+    if (HasEntProp(client, Prop_Send, "m_bInBuyZone")) {
+        SetEntProp(client, Prop_Send, "m_bInBuyZone", 1);
+    }
+}
+
+// The forward comes before the game takes the price: refill on the next frame.
+public Action CS_OnBuyCommand(int client, const char[] weapon) {
+    if (g_bActive && g_cvInfiniteMoney.BoolValue && IsHuman(client)) {
+        RequestFrame(Frame_RefillMoney, GetClientUserId(client));
+    }
+    return Plugin_Continue;
+}
+
+public void Frame_RefillMoney(int userid) {
+    int client = GetClientOfUserId(userid);
+    if (g_bActive && client != 0 && IsClientInGame(client) && HasEntProp(client, Prop_Send, "m_iAccount")) {
+        SetEntProp(client, Prop_Send, "m_iAccount", 16000);
+    }
 }
 
 // ---------------------------------------------------------------------------

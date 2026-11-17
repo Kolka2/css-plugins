@@ -8,7 +8,7 @@
 
 - Слой по `ARCHITECTURE.md`: **режим**. Необязательно использует `nadethrow` (сила броска). Сторонних библиотек и DHooks нет.
 - **Gamedata — по решению владельца** (отступление от правила 5 раздела 2 `ARCHITECTURE.md`): только для настоящей детонации снарядов повтора. Если gamedata устарела, эта функция выключается, остальное работает (см. «Gamedata»).
-- Владеет (пока режим активен): деньгами, гранатами и уроном игроков, возрождением, числом ботов (`bot_quota 0`), своими временными кварами, флагами консольной команды `noclip`, длительностью дыма игроков; всегда — базой лайнапов.
+- Владеет (пока режим активен): деньгами и закупкой, гранатами и уроном игроков, возрождением, числом ботов (`bot_quota 0`), своими временными кварами, флагами консольной команды `noclip`, длительностью дыма игроков; всегда — базой лайнапов.
 
 ## Установка
 
@@ -40,6 +40,8 @@
 | `mp_startmoney` | 16000 | деньги |
 | `mp_limitteams`, `mp_autoteambalance` | 0 | любая команда |
 | `bot_quota` | 0 | без ботов |
+
+Пока режим запущен, закупаться можно в любом месте карты (`sm_nadepractice_buy_anywhere`), а после каждой покупки деньги возвращаются к 16000 (`sm_nadepractice_infinite_money`).
 
 `sv_cheats` не трогается. На время режима у консольной команды `noclip` снимается флаг cheat (её обрабатывает плагин), при остановке флаг возвращается.
 
@@ -124,6 +126,8 @@
 | `sm_nadepractice_te_per_frame` | 24 | временных сущностей (лучи, кольца) одному игроку на сетевое обновление (предел движка — 32) |
 | `sm_nadepractice_infinite` | 1 | бесконечные гранаты |
 | `sm_nadepractice_give_on_spawn` | 1 | выдавать HE, флешку и дым при появлении |
+| `sm_nadepractice_buy_anywhere` | 1 | закупка в любом месте карты |
+| `sm_nadepractice_infinite_money` | 1 | после каждой покупки деньги возвращаются к 16000 |
 | `sm_nadepractice_block_damage` | 1 | блокировать любой урон |
 | `sm_nadepractice_block_self_nade_damage` | 1 | блокировать урон от своих гранат (при `block_damage 0`) |
 | `sm_nadepractice_respawn_delay` | 1.0 | возрождение через столько секунд (0 — выключено) |
@@ -272,7 +276,7 @@ A SourceMod 1.12 plugin for Counter-Strike: Source: infinite grenades with no da
 
 - Layer (per `ARCHITECTURE.md`): **mode**. Optionally uses `nadethrow` (throw strength). No third-party libraries, no DHooks.
 - **Gamedata — by the owner's decision** (an exception to rule 5 of section 2 of `ARCHITECTURE.md`): only for the real detonation of replay projectiles. If the gamedata is out of date, that feature turns off and everything else keeps working (see "Gamedata").
-- Owns (while active): players' money, grenades and damage, respawning, the bot count (`bot_quota 0`), its temporary cvars, the flags of the `noclip` console command, players' smoke duration; always — the lineup database.
+- Owns (while active): players' money and buying, grenades and damage, respawning, the bot count (`bot_quota 0`), its temporary cvars, the flags of the `noclip` console command, players' smoke duration; always — the lineup database.
 
 ## Installation
 
@@ -304,6 +308,8 @@ On start it sets temporary cvars; on stop (command, map change, plugin unload, `
 | `mp_startmoney` | 16000 | money |
 | `mp_limitteams`, `mp_autoteambalance` | 0 | any team |
 | `bot_quota` | 0 | no bots |
+
+While the mode is active, players can buy anywhere on the map (`sm_nadepractice_buy_anywhere`), and money goes back to 16000 after every purchase (`sm_nadepractice_infinite_money`).
 
 `sv_cheats` is not touched. While the mode runs, the `noclip` console command loses its cheat flag (the plugin handles it); the flag is restored on stop.
 
@@ -388,6 +394,8 @@ Lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints 
 | `sm_nadepractice_te_per_frame` | 24 | temp entities (beams, rings) per player per network update (engine limit 32) |
 | `sm_nadepractice_infinite` | 1 | infinite grenades |
 | `sm_nadepractice_give_on_spawn` | 1 | give HE, flashbang and smoke on spawn |
+| `sm_nadepractice_buy_anywhere` | 1 | buying anywhere on the map |
+| `sm_nadepractice_infinite_money` | 1 | money goes back to 16000 after every purchase |
 | `sm_nadepractice_block_damage` | 1 | block all damage |
 | `sm_nadepractice_block_self_nade_damage` | 1 | block damage from your own grenades (with `block_damage 0`) |
 | `sm_nadepractice_respawn_delay` | 1.0 | respawn after this many seconds (0 = off) |
