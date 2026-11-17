@@ -710,3 +710,45 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
     }
     return 0;
 }
+
+// ---------------------------------------------------------------------------
+// Chat commands with a dot (.spawn, .noclip, ...), as in splewis/csgo-practice-mode: while the
+// mode is active they run the plugin's own ! command. Only the plugin's commands are
+// recognized; the chat line itself stays visible, as with "!".
+// ---------------------------------------------------------------------------
+
+char g_DotCommands[][] = {
+    "practice", "nadepractice", "noclip", "back", "last", "clear", "tracer", "preview", "preverror",
+    "noflash", "hands", "hints", "save", "lineups", "goto", "show", "delete", "rename", "desc",
+    "setstart", "setrelease", "setaim", "nostart", "flash", "spawn", "bestspawn", "worstspawn",
+    "timer", "timer2", "all"
+};
+
+void Practice_DotCommand(int client, const char[] sArgs) {
+    if (!g_bActive || !g_cvDotCommands.BoolValue || !IsHuman(client)) {
+        return;
+    }
+    char message[192];
+    strcopy(message, sizeof(message), sArgs);
+    StripQuotes(message);
+    TrimString(message);
+    if (message[0] != '.' || message[1] == '\0') {
+        return;
+    }
+    char word[32];
+    int rest = BreakString(message[1], word, sizeof(word));
+    for (int i = 0; word[i] != '\0'; i++) {
+        word[i] = CharToLower(word[i]);
+    }
+    for (int i = 0; i < sizeof(g_DotCommands); i++) {
+        if (StrEqual(word, g_DotCommands[i])) {
+            char args[160];
+            if (rest != -1) {
+                strcopy(args, sizeof(args), message[1 + rest]);
+            }
+            FakeClientCommandEx(client, "sm_%s %s", word, args);
+            LogDebug("dot command: %N .%s", client, word);
+            return;
+        }
+    }
+}

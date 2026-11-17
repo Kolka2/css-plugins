@@ -61,7 +61,8 @@
 | `!hands` | вернуть пропавшую модель рук и оружия |
 | `!hints` | подсказки по выбранному лайнапу (вкл/выкл) |
 | `!save <имя>` | сохранить последний бросок как лайнап (после детонации) |
-| `!lineups` | меню лайнапов: по типу гранаты, ближайшие первыми |
+| `!lineups` | меню лайнапов: показать или скрыть лайнап на карте (по типу гранаты, ближайшие первыми), «показывать все», карточки лайнапов |
+| `!all` | показывать все лайнапы карты сразу (вкл/выкл) |
 | `!goto <имя>` | телепорт на старт лайнапа, граната в руки, подсказки |
 | `!show <имя>` | повторить бросок лайнапа |
 | `!delete [имя]` | удалить лайнап (без имени — выбранный) |
@@ -81,6 +82,8 @@
 
 `sm_noclip` / `!noclip` без аргумента в активном режиме обрабатывает `nadepractice` (поэтому в чате префикс `NadePractice`); вне режима и `sm_noclip <ник>` у админа — `funcommands`.
 
+Пока режим запущен, команды плагина работают и с точкой: `.spawn`, `.noclip`, `.save имя` и т. д. (`sm_nadepractice_dot_commands`).
+
 Админ-команды: `sm_nadepractice_start`, `sm_nadepractice_stop` (флаг changemap), `sm_nadepractice_gamedata` (флаг generic) — состояние функций gamedata.
 
 ## Меню `!practice`
@@ -90,6 +93,8 @@
 ## Как пользоваться
 
 **Лайнап.** Бросить гранату → `!save имя`. Плагин запоминает старт и точку броска, углы, тип броска, силу (`nadethrow`), траекторию, точку и время детонации.
+
+**Несколько лайнапов сразу.** В `!lineups` каждый лайнап — переключатель: нажал — он показан на карте, нажал ещё раз — скрыт; «Показывать все» (или `!all`) показывает все лайнапы карты. У каждого показанного лайнапа поблизости (`sm_nadepractice_show_radius`, не больше `sm_nadepractice_show_max` ближайших) — кольцо и столбик цветом гранаты там, где встать. Зашёл в кольцо (`sm_nadepractice_show_select_radius`) — этот лайнап выбирается сам и получает полную подсказку: рамку прицела, текст, точку приземления. Подсказка остаётся, пока не зайдёшь в кольцо другого лайнапа. Телепорт, повтор, правка и удаление — в «Карточках лайнапов».
 
 **Два места: старт и точка броска.** Старт — где встать перед разбегом или прыжком, точка броска — где граната вылетела из рук. Определяются автоматически: стоя и в приседе — одно место; прыжок и jumpthrow — точка отрыва; бег — последняя точка на земле со скоростью ниже `sm_nadepractice_start_speed`, не дальше `sm_nadepractice_start_lookback` секунд. Подсказка рисует жёлтое кольцо (цель проверки позиции, зеленеет в допуске), голубое кольцо поменьше (второе место) и линию разбега между ними. Прицел — тот, что был в момент броска: при броске с бега наводишься на старте и бежишь, не двигая мышь.
 
@@ -155,6 +160,10 @@
 | `sm_nadepractice_hint_unicode` | 1 | стрелки: 1 — юникод, 0 — ASCII |
 | `sm_nadepractice_hint_look_distance` | 300.0 | расстояние от глаз до метки прицела |
 | `sm_nadepractice_hint_target` | 0 | цель проверки позиции по умолчанию: 0 — авто, 1 — старт, 2 — точка броска |
+| `sm_nadepractice_show_radius` | 1500.0 | показанные лайнапы: кольца у тех, что ближе этого, юнитов |
+| `sm_nadepractice_show_max` | 8 | показанные лайнапы: колец не больше, чем у стольких ближайших |
+| `sm_nadepractice_show_select_radius` | 48.0 | показанные лайнапы: так близко к месту лайнапа — он выбирается для полной подсказки, юнитов |
+| `sm_nadepractice_dot_commands` | 1 | команды с точкой (`.spawn`, `.noclip`…) в режиме работают как `!`-команды |
 | `sm_nadepractice_hint_marker` | 0 | метка прицела по умолчанию: 0 — рамка, 1 — крестик, 2 — спрайт |
 | `sm_nadepractice_hint_marker_width` | 0.6 | толщина линий рамки и крестика |
 | `sm_nadepractice_preview_default` | 1 | предпросмотр включён у игрока по умолчанию |
@@ -225,7 +234,7 @@
 
 ## Откуда идеи
 
-Проверка ослепления (`!flash`), спавны (`!spawn`, `!bestspawn`, `!worstspawn`) и таймеры (`!timer`, `!timer2`) повторяют устройство команд `.flash`, `.spawn`, `.bestspawn`, `.worstspawn`, `.timer`, `.timer2` из [splewis/csgo-practice-mode](https://github.com/splewis/csgo-practice-mode) (GPL-3.0). Код написан заново под CS:S, куски оригинала не переносились.
+Проверка ослепления (`!flash`), спавны (`!spawn`, `!bestspawn`, `!worstspawn`) и таймеры (`!timer`, `!timer2`) повторяют устройство команд `.flash`, `.spawn`, `.bestspawn`, `.worstspawn`, `.timer`, `.timer2` из [splewis/csgo-practice-mode](https://github.com/splewis/csgo-practice-mode) (GPL-3.0). Оттуда же — команды с точкой (`.spawn` и т. п.). Код написан заново под CS:S, куски оригинала не переносились.
 
 ## API
 
@@ -316,7 +325,8 @@ A dead player respawns after `sm_nadepractice_respawn_delay` seconds (rounds nev
 | `!hands` | bring back a missing first person hands/weapon model |
 | `!hints` | hints for the selected lineup (toggle) |
 | `!save <name>` | save the last throw as a lineup (after the detonation) |
-| `!lineups` | lineup menu: by grenade type, nearest first |
+| `!lineups` | lineup menu: show or hide a lineup on the map (by grenade type, nearest first), "show all", lineup cards |
+| `!all` | show all lineups of the map at once (toggle) |
 | `!goto <name>` | teleport to the lineup start, grenade in hand, hints |
 | `!show <name>` | replay the lineup throw |
 | `!delete [name]` | delete a lineup (the selected one without a name) |
@@ -336,6 +346,8 @@ Names in `!goto`, `!show`, `!delete` may be partial if only one lineup matches. 
 
 While the mode is active, `sm_noclip` / `!noclip` without an argument is handled by `nadepractice` (hence the `NadePractice` chat prefix); outside the mode, and `sm_noclip <name>` for admins, it goes to `funcommands`.
 
+While the mode is active, the plugin's commands also work with a dot: `.spawn`, `.noclip`, `.save name` and so on (`sm_nadepractice_dot_commands`).
+
 Admin commands: `sm_nadepractice_start`, `sm_nadepractice_stop` (changemap flag), `sm_nadepractice_gamedata` (generic flag) — state of the gamedata features.
 
 ## The `!practice` menu
@@ -345,6 +357,8 @@ Lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints 
 ## How to use it
 
 **A lineup.** Throw a grenade → `!save name`. The plugin stores the start and the release point, the angles, the throw type, the strength (`nadethrow`), the trajectory, the detonation point and time.
+
+**Several lineups at once.** In `!lineups` every lineup is a toggle: press it to show it on the map, press again to hide it; "Show all" (or `!all`) shows every lineup of the map. Each shown lineup nearby (`sm_nadepractice_show_radius`, at most `sm_nadepractice_show_max` nearest) gets a ring and a pillar in the grenade color where to stand. Walk into a ring (`sm_nadepractice_show_select_radius`) and that lineup is selected automatically with the full hint: aim frame, text, landing point. The hint stays until you walk into the ring of another lineup. Teleport, replay, edit and delete are in "Lineup cards".
 
 **Two places: start and release point.** The start is where to stand before the run-up or the jump, the release point is where the grenade left the hand. Both are found automatically: standing and crouched — one place; jump and jumpthrow — the takeoff point; running — the last point on the ground with speed below `sm_nadepractice_start_speed`, no older than `sm_nadepractice_start_lookback` seconds. The hint draws a yellow ring (the position check target, green within tolerance), a smaller light blue ring (the other place) and the run-up line between them. The aim is the one at the moment of the throw: for a running throw you aim at the start and run without moving the mouse.
 
@@ -410,6 +424,10 @@ Lineups (with a Back button), replay, back, noclip, clear, tracer/preview/hints 
 | `sm_nadepractice_hint_unicode` | 1 | arrows: 1 = unicode, 0 = ASCII |
 | `sm_nadepractice_hint_look_distance` | 300.0 | distance from the eyes to the aim marker |
 | `sm_nadepractice_hint_target` | 0 | default position check target: 0 = auto, 1 = start, 2 = release point |
+| `sm_nadepractice_show_radius` | 1500.0 | shown lineups: rings for those closer than this, units |
+| `sm_nadepractice_show_max` | 8 | shown lineups: rings for at most this many nearest |
+| `sm_nadepractice_show_select_radius` | 48.0 | shown lineups: this close to a lineup's place selects it for the full hint, units |
+| `sm_nadepractice_dot_commands` | 1 | dot commands (`.spawn`, `.noclip`, ...) work as the `!` commands in the mode |
 | `sm_nadepractice_hint_marker` | 0 | default aim marker: 0 = frame, 1 = cross, 2 = sprite |
 | `sm_nadepractice_hint_marker_width` | 0.6 | line width of the frame and the cross |
 | `sm_nadepractice_preview_default` | 1 | preview on for players by default |
@@ -480,7 +498,7 @@ A real replay explosion and flash affect **everyone** nearby, even though the re
 
 ## Credits
 
-The flash check (`!flash`), spawns (`!spawn`, `!bestspawn`, `!worstspawn`) and timers (`!timer`, `!timer2`) follow the design of the `.flash`, `.spawn`, `.bestspawn`, `.worstspawn`, `.timer`, `.timer2` commands of [splewis/csgo-practice-mode](https://github.com/splewis/csgo-practice-mode) (GPL-3.0). The code is written anew for CS:S; no parts of the original were copied.
+The flash check (`!flash`), spawns (`!spawn`, `!bestspawn`, `!worstspawn`) and timers (`!timer`, `!timer2`) follow the design of the `.flash`, `.spawn`, `.bestspawn`, `.worstspawn`, `.timer`, `.timer2` commands of [splewis/csgo-practice-mode](https://github.com/splewis/csgo-practice-mode) (GPL-3.0). So are the dot commands (`.spawn` and so on). The code is written anew for CS:S; no parts of the original were copied.
 
 ## API
 

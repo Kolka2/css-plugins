@@ -312,6 +312,12 @@ void Hints_Frame(int client, float now) {
     char timerLine[64];
     Timer_HintLine(client, timerLine, sizeof(timerLine));
 
+    // Shown lineups: rings of the others and selection by walking into a ring.
+    if (g_bHints[client] && IsPlayerAlive(client)) {
+        Shown_AutoSelect(client);
+        Shown_Draw(client);
+    }
+
     if (!g_bHints[client] || g_SelectedLineup[client] == 0) {
         if (timerLine[0] != '\0' && IsPlayerAlive(client)) {
             Hints_ShowText(client, timerLine, false);

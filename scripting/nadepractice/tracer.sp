@@ -437,6 +437,9 @@ int Tracer_Reserve(int client) {
     if (g_bHints[client] && g_SelectedLineup[client] != 0) {
         reserve += 8;       // aim marker (4) + rings
     }
+    if (g_bHints[client] && Shown_Any(client)) {
+        reserve += SHOWN_PER_DRAW * 2;  // ring and pillar of each shown lineup drawn per update
+    }
     int budget = g_cvTeBudget.IntValue;
     return (reserve > budget - 2) ? budget - 2 : reserve;
 }

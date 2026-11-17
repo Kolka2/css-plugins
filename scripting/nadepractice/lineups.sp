@@ -297,6 +297,7 @@ void Lineups_Goto(int client, int index) {
     Practice_SwitchToNade(client, lineup.nade, "goto");
 
     Hints_Select(client, lineup.id);
+    Shown_Set(client, lineup.id, true);
     char nadeName[48], throwName[64];
     NadeName(client, lineup.nade, nadeName, sizeof(nadeName));
     ThrowNameEx(client, lineup.throwType, lineup.strength, throwName, sizeof(throwName));
@@ -334,6 +335,7 @@ void Lineups_Delete(int client, int index) {
             Hints_Deselect(i);
         }
     }
+    Shown_OnLineupDeleted(lineup.id);
     LogDebug("lineups: %N deleted \"%s\"", client, lineup.name);
     NP_Print(client, "%t", "Lineup Deleted", lineup.name);
 }
@@ -539,24 +541,49 @@ int Lineups_CountByNade(int nade) {
     return count;
 }
 
+// Lineups of a grenade type that are shown on the map.
+int Lineups_CountShown(int client, int nade) {
+    int count = 0;
+    Lineup lineup;
+    for (int i = 0; i < g_Lineups.Length; i++) {
+        g_Lineups.GetArray(i, lineup);
+        if ((nade == NADE_NONE || lineup.nade == nade) && Shown_Is(client, lineup.id)) {
+            count++;
+        }
+    }
+    return count;
+}
+
 // Top lineup menu. Has a Back button to !practice only if it was opened from there
 // (g_bMenuFromPractice); the flag is kept while the player moves inside the lineup menus.
+// The lists below it toggle showing a lineup on the map; lineup cards (teleport, replay,
+// edit, delete) have their own entry.
 void Lineups_ShowMainMenu(int client) {
     Menu menu = new Menu(MenuHandler_LineupsMain);
-    menu.SetTitle("%T", "Lineups Title", client, g_Lineups.Length);
+    char title[96];
+    if (PhraseExists("Lineups Title")) {
+        FormatEx(title, sizeof(title), "%T", "Lineups Title", client, g_Lineups.Length);
+    } else {
+        strcopy(title, sizeof(title), "Lineups");
+    }
+    menu.SetTitle(title);
     menu.ExitBackButton = g_bMenuFromPractice[client];
 
-    char text[96], info[8];
-    FormatEx(text, sizeof(text), "%T (%d)", "Lineups Nearest", client, Lineups_CountByNade(NADE_NONE));
+    Menu_AddToggle(menu, client, "all", "Lineups Show All", g_bShowAll[client]);
+    char text[96], info[8], name[64];
+    Menu_Text(client, "Lineups Nearest", name, sizeof(name));
+    FormatEx(text, sizeof(text), "%s (%d/%d)", name, Lineups_CountShown(client, NADE_NONE), Lineups_CountByNade(NADE_NONE));
     menu.AddItem("-1", text);
     for (int nade = 0; nade < NADE_COUNT; nade++) {
         IntToString(nade, info, sizeof(info));
-        FormatEx(text, sizeof(text), "%T (%d)", g_NadePhrase[nade], client, Lineups_CountByNade(nade));
+        Menu_Text(client, g_NadePhrase[nade], name, sizeof(name));
+        FormatEx(text, sizeof(text), "%s (%d/%d)", name, Lineups_CountShown(client, nade), Lineups_CountByNade(nade));
         menu.AddItem(info, text);
     }
-    if (Lineups_IndexById(g_SelectedLineup[client]) != -1) {
-        Menu_AddPhrase(menu, client, "deselect", "Lineups Deselect");
+    if (Shown_Any(client)) {
+        Menu_AddPhrase(menu, client, "hide", "Lineups Hide All");
     }
+    Menu_AddPhrase(menu, client, "cards", "Lineups Cards");
     menu.Display(client, MENU_TIME_FOREVER);
 }
 
@@ -569,10 +596,18 @@ public int MenuHandler_LineupsMain(Menu menu, MenuAction action, int client, int
     } else if (action == MenuAction_Select && g_bActive) {
         char info[16];
         menu.GetItem(item, info, sizeof(info));
-        if (StrEqual(info, "deselect")) {
-            Hints_Deselect(client);
+        if (StrEqual(info, "all")) {
+            Shown_ToggleAll(client);
             Lineups_ShowMainMenu(client);
+        } else if (StrEqual(info, "hide")) {
+            Shown_HideAll(client);
+            Lineups_ShowMainMenu(client);
+        } else if (StrEqual(info, "cards")) {
+            g_bListCards[client] = true;
+            g_MenuFilter[client] = NADE_NONE;
+            Lineups_ShowListMenu(client);
         } else {
+            g_bListCards[client] = false;
             g_MenuFilter[client] = StringToInt(info);
             Lineups_ShowListMenu(client);
         }
@@ -608,17 +643,22 @@ void Lineups_ShowListMenu(int client, int firstItem = 0) {
     order.Sort(Sort_Ascending, Sort_Float);
 
     Menu menu = new Menu(MenuHandler_LineupsList);
-    menu.SetTitle("%T", "Lineups List Title", client);
+    char title[96];
+    Menu_Text(client, g_bListCards[client] ? "Lineups List Title" : "Lineups Toggle Title", title, sizeof(title));
+    menu.SetTitle(title);
     menu.ExitBackButton = true;
 
-    char text[160], info[16], throwName[64];
+    // Toggle list: "[x]" = shown on the map. Card list: plain names.
+    char text[192], info[16], throwName[64], nadeName[32];
     for (int i = 0; i < order.Length; i++) {
         order.GetArray(i, entry);
         g_Lineups.GetArray(entry[1], lineup);
         IntToString(lineup.id, info, sizeof(info));
         ThrowNameEx(client, lineup.throwType, lineup.strength, throwName, sizeof(throwName));
-        FormatEx(text, sizeof(text), "%s [%T, %s] %d u", lineup.name, g_NadePhrase[lineup.nade], client,
-            throwName, RoundToNearest(view_as<float>(entry[0])));
+        NadeName(client, lineup.nade, nadeName, sizeof(nadeName));
+        FormatEx(text, sizeof(text), "%s%s [%s, %s] %d u",
+            g_bListCards[client] ? "" : (Shown_Is(client, lineup.id) ? "[x] " : "[  ] "),
+            lineup.name, nadeName, throwName, RoundToNearest(view_as<float>(entry[0])));
         menu.AddItem(info, text);
     }
     delete order;
@@ -636,8 +676,14 @@ public int MenuHandler_LineupsList(Menu menu, MenuAction action, int client, int
     } else if (action == MenuAction_Select && g_bActive) {
         char info[16];
         menu.GetItem(item, info, sizeof(info));
-        g_MenuLineup[client] = StringToInt(info);
         g_ListMenuPos[client] = menu.Selection;
+        if (!g_bListCards[client]) {
+            // Toggle list: show / hide this lineup and stay on the same page.
+            Shown_Toggle(client, StringToInt(info));
+            Lineups_ShowListMenu(client, g_ListMenuPos[client]);
+            return 0;
+        }
+        g_MenuLineup[client] = StringToInt(info);
         Lineups_ShowItemMenu(client);
     }
     return 0;
@@ -712,6 +758,7 @@ public int MenuHandler_LineupsItem(Menu menu, MenuAction action, int client, int
         Lineups_Show(client, index);
     } else if (StrEqual(info, "select")) {
         Hints_Select(client, g_MenuLineup[client]);
+        Shown_Set(client, g_MenuLineup[client], true);
         NP_Print(client, "%t", "Lineup Selected");
     } else if (StrEqual(info, "edit")) {
         // The edit menu works on the selected lineup: select this one.

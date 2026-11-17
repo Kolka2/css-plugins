@@ -138,7 +138,7 @@
     }
     "Help Line 1"
     {
-        "ru"        "!noclip !back !last !clear !tracer !preview !preverror [reset] !hints !noflash !hands"
+        "ru"        "!noclip !back !last !clear !tracer !preview !preverror [reset] !hints !noflash !hands !all"
     }
     "Help Line 2"
     {
@@ -634,7 +634,7 @@
     }
     "Help Line 4"
     {
-        "ru"        "!flash [off] - точка проверки ослепления; !spawn [t|ct] [N], !bestspawn, !worstspawn; !timer, !timer2"
+        "ru"        "!flash [off] - точка проверки ослепления; !spawn [t|ct] [N], !bestspawn, !worstspawn; !timer, !timer2. Команды работают и с точкой: .spawn, .noclip"
     }
     "Menu Hint Mode"
     {
@@ -659,5 +659,29 @@
     "Jumpthrow Bind Nadethrow"
     {
         "ru"        "Бинд для jumpthrow (в консоль, работает и с ПКМ): alias +jt \"+jump;-attack;-attack2\"; alias -jt -jump; bind <клавиша> +jt"
+    }
+    "Lineups Show All"
+    {
+        "ru"        "Показывать все лайнапы на карте"
+    }
+    "Lineups Hide All"
+    {
+        "ru"        "Скрыть все показанные лайнапы"
+    }
+    "Lineups Cards"
+    {
+        "ru"        "Карточки лайнапов: телепорт, повтор, правка, удаление"
+    }
+    "Lineups Toggle Title"
+    {
+        "ru"        "Нажми на лайнап, чтобы показать или скрыть его на карте"
+    }
+    "Shown All On"
+    {
+        "ru"        "Показаны все лайнапы карты. Зайди в кольцо — появится полная подсказка для этого лайнапа."
+    }
+    "Shown All Off"
+    {
+        "ru"        "Лайнапы больше не показываются."
     }
 }

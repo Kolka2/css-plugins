@@ -292,6 +292,10 @@ ConVar g_cvHintMode;
 ConVar g_cvHintUnicode;
 ConVar g_cvHintLookDist;
 ConVar g_cvHintTarget;
+ConVar g_cvShowRadius;
+ConVar g_cvShowMax;
+ConVar g_cvShowSelectRadius;
+ConVar g_cvDotCommands;
 ConVar g_cvHintMarker;
 ConVar g_cvHintMarkerWidth;
 
@@ -400,6 +404,13 @@ bool g_bMenuFromPractice[MAXPLAYERS + 1];   // lineup menu opened from !practice
 int g_PracticeMenuPos[MAXPLAYERS + 1];      // first item of the !practice page to return to
 int g_ListMenuPos[MAXPLAYERS + 1];          // first item of the lineup list page to return to
 bool g_bEditFromCard[MAXPLAYERS + 1];       // edit menu opened from a lineup card (Back returns there)
+bool g_bListCards[MAXPLAYERS + 1];          // lineup list opens cards (otherwise it toggles showing)
+
+// lineups shown on the map at once (shown.sp)
+#define SHOWN_PER_DRAW 4                    // shown lineups drawn per hint update (spread over updates)
+ArrayList g_ShownIds[MAXPLAYERS + 1];       // lineups shown one by one (ids)
+bool g_bShowAll[MAXPLAYERS + 1];
+int g_ShownDrawPos[MAXPLAYERS + 1];
 
 // hints
 Handle g_HudSync;
@@ -445,6 +456,7 @@ float g_ErrStrSum[MAXPLAYERS + 1][3];
 #include "nadepractice/spawns.sp"
 #include "nadepractice/timer.sp"
 #include "nadepractice/smoke.sp"
+#include "nadepractice/shown.sp"
 #include "nadepractice/gamedata.sp"
 
 // ---------------------------------------------------------------------------
@@ -522,6 +534,10 @@ public void OnPluginStart() {
     g_cvHintMode      = CreateConVar("sm_nadepractice_hint_mode", "0", "Default hint output: 0 = KeyHintText (right panel), 1 = HintText (centre), 2 = HUD text (colored); each player can change it in the menu", _, true, 0.0, true, 2.0);
     g_cvHintUnicode   = CreateConVar("sm_nadepractice_hint_unicode", "1", "Arrows in hints: 1 = unicode, 0 = ASCII", _, true, 0.0, true, 1.0);
     g_cvHintLookDist  = CreateConVar("sm_nadepractice_hint_look_distance", "300.0", "Distance from the eyes of the aim marker (closer if a wall is in the way)", _, true, 32.0, true, 4000.0);
+    g_cvShowRadius       = CreateConVar("sm_nadepractice_show_radius", "1500.0", "Shown lineups: draw rings of those closer than this, units", _, true, 100.0, true, 8000.0);
+    g_cvShowMax          = CreateConVar("sm_nadepractice_show_max", "8", "Shown lineups: draw rings of at most this many nearest ones", _, true, 1.0, true, 16.0);
+    g_cvShowSelectRadius = CreateConVar("sm_nadepractice_show_select_radius", "48.0", "Shown lineups: walking this close to the place of one selects it for the full hint, units", _, true, 8.0, true, 256.0);
+    g_cvDotCommands      = CreateConVar("sm_nadepractice_dot_commands", "1", "Chat commands with a dot (.spawn, .noclip, ...) work as the ! commands while the mode is active", _, true, 0.0, true, 1.0);
     g_cvHintTarget    = CreateConVar("sm_nadepractice_hint_target", "0", "Default target of the position check: 0 = auto (the start if it is away from the release point), 1 = start, 2 = release point", _, true, 0.0, true, 2.0);
     g_cvHintMarker    = CreateConVar("sm_nadepractice_hint_marker", "0", "Default aim marker: 0 = tolerance frame, 1 = cross, 2 = glow sprite (each player can change it in the menu)", _, true, 0.0, true, 2.0);
     g_cvHintMarkerWidth = CreateConVar("sm_nadepractice_hint_marker_width", "0.6", "Line width of the aim frame and cross", _, true, 0.1, true, 5.0);
@@ -570,6 +586,7 @@ public void OnPluginStart() {
     Spawns_Init();
     Timer_Init();
     Gamedata_Init();
+    Shown_Init();
 
     // A mode reacts to game events in Post (ARCHITECTURE.md, section 4).
     HookEvent("player_spawn", Event_PlayerSpawn, EventHookMode_Post);
@@ -686,6 +703,11 @@ public void OnEntityDestroyed(int entity) {
     Throws_OnEntityDestroyed(entity);
 }
 
+public Action OnClientSayCommand(int client, const char[] command, const char[] sArgs) {
+    Practice_DotCommand(client, sArgs);
+    return Plugin_Continue;
+}
+
 public void OnPlayerRunCmdPost(int client, int buttons) {
     if (g_bActive && !IsFakeClient(client) && IsPlayerAlive(client)) {
         Movement_Record(client, buttons);
@@ -745,6 +767,8 @@ void ResetClientState(int client) {
     g_PracticeMenuPos[client] = 0;
     g_ListMenuPos[client] = 0;
     g_bEditFromCard[client] = false;
+    g_bListCards[client] = false;
+    Shown_ResetClient(client);
     Movement_Clear(client);
     Tracer_ResetClient(client);
     Hints_ResetClient(client);
