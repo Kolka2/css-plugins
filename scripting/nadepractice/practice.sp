@@ -422,6 +422,8 @@ public Action Practice_OnTakeDamage(int victim, int &attacker, int &inflictor, f
     if (!g_bActive) {
         return Plugin_Continue;
     }
+    // Seen before any blocking: what an HE would have done (stage 12.2).
+    Measure_OnDamage(victim, attacker, inflictor, damage);
     if (g_cvBlockDamage.BoolValue) {
         return Plugin_Handled;
     }
@@ -437,7 +439,12 @@ public void Event_PlayerBlind(Event event, const char[] name, bool dontBroadcast
         return;
     }
     int client = GetClientOfUserId(event.GetInt("userid"));
-    if (client == 0 || !g_bNoFlash[client] || !IsClientInGame(client)) {
+    if (client == 0 || !IsClientInGame(client)) {
+        return;
+    }
+    // The measurement reads the values before !noflash resets them (stage 12.1).
+    Measure_OnBlind(client);
+    if (!g_bNoFlash[client]) {
         return;
     }
     // CSS-VERIFY: resetting these properties in player_blind removes the blindness.
@@ -591,6 +598,7 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_AddChoice(menu, client, "marker", "Menu Marker", g_MarkerPhrase[g_HintMarkerStyle[client]]);
     Menu_AddChoice(menu, client, "target", "Menu Target", g_TargetPhrase[g_HintTarget[client]]);
     Menu_AddPhrase(menu, client, "edit", "Menu Edit");
+    Menu_AddPhrase(menu, client, "measure", "Menu Measure");
     Menu_AddToggle(menu, client, "noflash", "Menu Noflash", g_bNoFlash[client]);
     Menu_AddPhrase(menu, client, "hands", "Menu Hands");
     Menu_AddPhrase(menu, client, "preverror", "Menu PrevError");
@@ -637,6 +645,10 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
         Hints_CycleMarker(client);
     } else if (StrEqual(info, "target")) {
         Hints_CycleTarget(client);
+    } else if (StrEqual(info, "measure")) {
+        g_PracticeMenuPos[client] = menu.Selection;
+        Measure_ShowMenu(client);
+        reopen = false;
     } else if (StrEqual(info, "edit")) {
         g_PracticeMenuPos[client] = menu.Selection;
         g_bEditFromCard[client] = false;

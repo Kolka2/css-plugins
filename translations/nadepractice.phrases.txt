@@ -472,4 +472,144 @@
         "#format"   "{1:s}"
         "en"        "By buttons (throws / average error): {1}"
     }
+    "Menu Measure"
+    {
+        "en"        "Measurements: flash check, HE damage, air time"
+    }
+    "Measure Title"
+    {
+        "en"        "Measurements"
+    }
+    "Measure Set Point"
+    {
+        "en"        "Flash check point = where I stand"
+    }
+    "Measure Point Off"
+    {
+        "en"        "Turn the check point off"
+    }
+    "Measure Mode"
+    {
+        "en"        "Check point is used by"
+    }
+    "Measure Mode Flash"
+    {
+        "en"        "flashbangs"
+    }
+    "Measure Mode HE"
+    {
+        "en"        "flashbangs and HE"
+    }
+    "Measure Return"
+    {
+        "en"        "Return after the check"
+    }
+    "Measure He Report"
+    {
+        "en"        "Report HE damage"
+    }
+    "Measure Airtime"
+    {
+        "en"        "Report air time"
+    }
+    "Check Set"
+    {
+        "en"        "Check point saved. Walk away and throw a flashbang: you will be moved back here to see it arrive."
+    }
+    "Check Set HE"
+    {
+        "en"        "Check point saved. Walk away and throw a flashbang or an HE: you will be moved back here."
+    }
+    "Check Off"
+    {
+        "en"        "Flash check point turned off."
+    }
+    "Check NoFlash On"
+    {
+        "en"        "!noflash is on, so you will not see the blindness; turn it off with !noflash."
+    }
+    "Check Replay No Blind"
+    {
+        "en"        "A replayed flashbang does not blind (no real detonation): throw it yourself."
+    }
+    "Flash Self"
+    {
+        "#format"   "{1:.1f},{2:d},{3:d}"
+        "en"        "Flashed for {1} s, strength {2}%, {3} u from the explosion."
+    }
+    "Flash Self Would"
+    {
+        "#format"   "{1:.1f},{2:d},{3:d}"
+        "en"        "Would be flashed for {1} s, strength {2}%, {3} u from the explosion (!noflash is on)."
+    }
+    "Flash Not Blinded"
+    {
+        "#format"   "{1:d}"
+        "en"        "Not flashed ({1} u from the explosion)."
+    }
+    "Flash Others"
+    {
+        "#format"   "{1:s}"
+        "en"        "Your flash blinded: {1}"
+    }
+    "He Armored"
+    {
+        "en"        "with armor ~"
+    }
+    "He Report"
+    {
+        "#format"   "{1:s}"
+        "en"        "HE: {1}"
+    }
+    "He Victim"
+    {
+        "#format"   "{1:s},{2:d}"
+        "en"        "HE of {1}: {2}"
+    }
+    "He No Hits"
+    {
+        "en"        "HE: nobody hit."
+    }
+    "Airtime Smoke"
+    {
+        "#format"   "{1:.2f},{2:s}"
+        "en"        "Smoke popped {1} s after the throw; {2}."
+    }
+    "Airtime Nade"
+    {
+        "#format"   "{1:s},{2:.2f},{3:s},{4:s}"
+        "en"        "{1}: went off after {2} s; {3}; {4}."
+    }
+    "Airtime Contact"
+    {
+        "#format"   "{1:.2f},{2:d}"
+        "en"        "first contact {1} s, bounces {2}"
+    }
+    "Airtime No Contact"
+    {
+        "en"        "no contact"
+    }
+    "Airtime In Air"
+    {
+        "en"        "in the air"
+    }
+    "Airtime After Contact"
+    {
+        "en"        "after a contact"
+    }
+    "Lineup Time"
+    {
+        "#format"   "{1:.2f},{2:.2f}"
+        "en"        "Time: goes off {1} s, first contact {2} s"
+    }
+    "Lineup Time No Contact"
+    {
+        "#format"   "{1:.2f}"
+        "en"        "Time: goes off {1} s, no contact"
+    }
+    "Hint Airtime"
+    {
+        "#format"   "{1:s},{2:.1f}"
+        "en"        "{1} goes off {2} s after the throw"
+    }
 }

@@ -80,7 +80,7 @@ bool Replay_Throw(int client, int nade, const float pos[3], const float vel[3]) 
     item.killAt = now + REPLAY_MAX_LIFE;
     g_ReplayEnts.PushArray(item);
 
-    Tracer_Track(entity, client, nade, pos, true, 0);
+    Tracer_Track(entity, client, nade, pos, true, 0, now);
 
     LogDebug("replay: %N nade=%s ent=%d pos=(%.1f %.1f %.1f) vel=(%.1f %.1f %.1f) engineFuse=%d",
         client, g_NadeKey[nade], entity, pos[0], pos[1], pos[2], vel[0], vel[1], vel[2], engineFuse);
@@ -98,6 +98,7 @@ bool Replay_Request(int client, int nade, const float pos[3], const float vel[3]
     g_NextReplay[client] = now + g_cvReplayCooldown.FloatValue;
 
     if (g_cvReplayMode.IntValue == 1 && hasProj && Replay_Throw(client, nade, pos, vel)) {
+        Measure_OnReplay(client, nade);
         return true;
     }
     // Fallback: draw the saved trajectory.

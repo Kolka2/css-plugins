@@ -42,6 +42,7 @@ public void Throws_OnSpawnPost(int entity) {
     }
 
     int ref = EntIndexToEntRef(entity);
+    g_ProjSpawnTime[entity] = GetGameTime();
 
     // CSS-VERIFY: at SpawnPost the projectile already has m_hOwnerEntity (the thrower).
     // If not, the snapshot is taken a frame later through m_hThrower (late=1 in the log).
@@ -90,6 +91,7 @@ void Throws_Snapshot(int client, int nade) {
     g_LastThrow[client].strength = 1.0;     // nadethrow tells the real one a moment later
     g_LastThrow[client].hasProj = false;
     g_LastThrow[client].hasDetonation = false;
+    g_LastThrow[client].hasAirtime = false;
     g_LastThrow[client].pathCount = 0;
 
     float start[3];
@@ -270,9 +272,11 @@ void Throws_Process(int ref, bool retry) {
         g_LastThrow[owner].hasStart ? "" : "none", g_LastThrow[owner].startOrigin[0], g_LastThrow[owner].startOrigin[1],
         g_LastThrow[owner].startOrigin[2]);
 
-    Tracer_Track(entity, owner, nade, pos, false, g_LastThrow[owner].serial);
+    Tracer_Track(entity, owner, nade, pos, false, g_LastThrow[owner].serial, g_ProjSpawnTime[entity]);
     if (hasVel) {
         Preview_OnThrow(owner, entity);
     }
     Practice_OnThrow(owner, nade);
+    // Last: the snapshot above must stay at the throw position.
+    Measure_OnThrow(owner, nade);
 }

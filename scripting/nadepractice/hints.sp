@@ -307,7 +307,7 @@ void Hints_Frame(int client, float now) {
         || !PhraseExists("Hint Alias") || !PhraseExists("Hint Alias Nadethrow")
         || !PhraseExists("Hint Buttons") || !PhraseExists("Hint Buttons Now") || !PhraseExists("Hint Need Nadethrow")
         || !PhraseExists(g_StrengthPhrase[STRENGTH_FULL]) || !PhraseExists(g_StrengthPhrase[STRENGTH_MEDIUM])
-        || !PhraseExists(g_StrengthPhrase[STRENGTH_LIGHT])
+        || !PhraseExists(g_StrengthPhrase[STRENGTH_LIGHT]) || !PhraseExists("Hint Airtime")
         || !PhraseExists(g_NadePhrase[lineup.nade]) || !PhraseExists(g_ThrowPhrase[lineup.throwType])) {
         return;
     }
@@ -391,6 +391,12 @@ void Hints_Frame(int client, float now) {
             FormatEx(buttonsLine, sizeof(buttonsLine), "%T: %T", "Hint Buttons", client, g_StrengthPhrase[needGroup], client);
         }
         Format(text, sizeof(text), "%s\n%s", text, buttonsLine);
+    }
+    // Air time from the lineup (stage 12.3), e.g. "the smoke pops 3.2 s after the throw".
+    if (lineup.hasAirtime) {
+        char nadeName[32];
+        NadeName(client, lineup.nade, nadeName, sizeof(nadeName));
+        Format(text, sizeof(text), "%s\n%T", text, "Hint Airtime", client, nadeName, lineup.airtime);
     }
     // A weaker throw is impossible without nadethrow.
     if (needGroup != STRENGTH_FULL && !IsNadethrowEnabled()) {

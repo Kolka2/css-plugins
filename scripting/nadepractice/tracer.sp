@@ -166,7 +166,8 @@ void Tracer_AddStaticPath(int client, int nade, const float[] path, int count) {
 // Projectile tracking
 // ---------------------------------------------------------------------------
 
-void Tracer_Track(int entity, int client, int nade, const float pos[3], bool replay, int throwSerial) {
+// spawnTime: when the projectile appeared (a real throw is tracked one frame later).
+void Tracer_Track(int entity, int client, int nade, const float pos[3], bool replay, int throwSerial, float spawnTime) {
     float now = GetGameTime();
 
     Tracked item;
@@ -175,7 +176,9 @@ void Tracer_Track(int entity, int client, int nade, const float pos[3], bool rep
     item.nade = nade;
     item.replay = replay;
     item.throwSerial = throwSerial;
-    item.spawnTime = now;
+    item.spawnTime = spawnTime;
+    item.firstContact = -1.0;
+    item.bounces = 0;
     item.nextSample = now + g_cvTraceSample.FloatValue;
     item.lastPos = pos;
     item.lastPoint = pos;
@@ -249,6 +252,12 @@ void Tracer_Frame(float now) {
         }
 
         bool moved = GetVectorDistance(pos, item.lastPoint) > 1.0;
+        if (bounce) {
+            item.bounces++;
+            if (item.firstContact < 0.0) {
+                item.firstContact = now - item.spawnTime;
+            }
+        }
         if (bounce && moved) {
             Tracer_AddPointTracked(item, pos, PT_BOUNCE);
             item.nextSample = now + g_cvTraceSample.FloatValue;
@@ -298,8 +307,19 @@ void Tracer_Finish(int index, const float pos[3], bool detonated) {
         }
     }
 
+    float flight = GetGameTime() - item.spawnTime;
     LogDebug("trajectory end: %N nade=%s replay=%d detonated=%d at (%.1f %.1f %.1f) flight=%.2fs",
-        client, g_NadeKey[item.nade], item.replay, detonated, pos[0], pos[1], pos[2], GetGameTime() - item.spawnTime);
+        client, g_NadeKey[item.nade], item.replay, detonated, pos[0], pos[1], pos[2], flight);
+
+    // Air time (stage 12.3): reported after every detonation, real or replay.
+    if (detonated) {
+        if (item.throwSerial != 0 && g_LastThrow[client].valid && g_LastThrow[client].serial == item.throwSerial) {
+            g_LastThrow[client].hasAirtime = true;
+            g_LastThrow[client].airtime = flight;
+            g_LastThrow[client].firstContact = item.firstContact;
+        }
+        Measure_OnDetonated(client, item.nade, flight, item.firstContact, item.bounces, item.replay);
+    }
 
     // A smoke whose record ended without a detonation does not count in the statistics.
     if (item.hasPrediction && (detonated || item.nade != NADE_SMOKE)) {

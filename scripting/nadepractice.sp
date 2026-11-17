@@ -142,6 +142,9 @@ enum struct ThrowInfo {
     float projVelocity[3];  // initial projectile velocity
     bool hasDetonation;
     float detonation[3];
+    bool hasAirtime;
+    float airtime;          // from the projectile spawn to the detonation, seconds
+    float firstContact;     // to the first bounce, seconds; -1 = none
     int pathCount;
     float path[MAX_PATH_POINTS * 3];
 }
@@ -174,6 +177,8 @@ enum struct Tracked {
     bool hasPrediction;
     float predicted[3];     // where the model expects the detonation
     float strength;         // throw strength used by the prediction
+    float firstContact;     // time of the first bounce since spawnTime, -1 = none yet
+    int bounces;
 }
 
 // Lineup from the database.
@@ -194,6 +199,9 @@ enum struct Lineup {
     float projVelocity[3];
     bool hasDetonation;
     float detonation[3];
+    bool hasAirtime;        // airtime / first_contact keys (stage 12; missing in older files)
+    float airtime;
+    float firstContact;
     char author[64];
     char desc[128];
     int pathCount;
@@ -215,6 +223,10 @@ ConVar g_cvInfinite;
 ConVar g_cvGiveOnSpawn;
 ConVar g_cvBlockDamage;
 ConVar g_cvBlockSelfNade;
+ConVar g_cvFlashReturn;
+ConVar g_cvHeReport;
+ConVar g_cvHeArmorRatio;
+ConVar g_cvAirtimeReport;
 ConVar g_cvRespawnDelay;
 ConVar g_cvRespawnAtDeath;
 
@@ -312,6 +324,19 @@ ThrowInfo g_LastThrow[MAXPLAYERS + 1];
 int g_PendingThrowRef[MAXPLAYERS + 1];
 float g_NextReplay[MAXPLAYERS + 1];
 bool g_bHasDeathPos[MAXPLAYERS + 1];        // respawn at the death point is pending
+
+// measurements (stage 12)
+bool g_bCheckOn[MAXPLAYERS + 1];            // flash check point is set
+int g_CheckMode[MAXPLAYERS + 1];            // CHECK_FLASH / CHECK_FLASH_HE
+float g_CheckPos[MAXPLAYERS + 1][3];
+float g_CheckAng[MAXPLAYERS + 1][3];
+bool g_bCheckReturn[MAXPLAYERS + 1];        // return to the throw position after a measurement
+bool g_bReturnPending[MAXPLAYERS + 1];
+float g_ReturnPos[MAXPLAYERS + 1][3];
+float g_ReturnAng[MAXPLAYERS + 1][3];
+bool g_bHeReport[MAXPLAYERS + 1];
+bool g_bAirtimeReport[MAXPLAYERS + 1];
+float g_ProjSpawnTime[MAX_EDICTS + 1];      // when each projectile spawned
 float g_DeathPos[MAXPLAYERS + 1][3];
 float g_DeathAng[MAXPLAYERS + 1][3];
 
@@ -389,6 +414,7 @@ float g_ErrStrSum[MAXPLAYERS + 1][3];
 #include "nadepractice/lineups.sp"
 #include "nadepractice/hints.sp"
 #include "nadepractice/preview.sp"
+#include "nadepractice/measure.sp"
 
 // ---------------------------------------------------------------------------
 // Loading
@@ -421,6 +447,10 @@ public void OnPluginStart() {
     g_cvGiveOnSpawn   = CreateConVar("sm_nadepractice_give_on_spawn", "1", "Give HE, flashbang and smoke on spawn", _, true, 0.0, true, 1.0);
     g_cvBlockDamage   = CreateConVar("sm_nadepractice_block_damage", "1", "Block all damage to players", _, true, 0.0, true, 1.0);
     g_cvBlockSelfNade = CreateConVar("sm_nadepractice_block_self_nade_damage", "1", "Block damage from your own grenades (useful with block_damage 0)", _, true, 0.0, true, 1.0);
+    g_cvFlashReturn   = CreateConVar("sm_nadepractice_flash_return", "1", "Flash check: return the player to the throw position after the blindness is over (each player can turn it off)", _, true, 0.0, true, 1.0);
+    g_cvHeReport      = CreateConVar("sm_nadepractice_he_damage_report", "1", "Report the damage an HE would do (default for each player)", _, true, 0.0, true, 1.0);
+    g_cvHeArmorRatio  = CreateConVar("sm_nadepractice_he_armor_ratio", "0.5", "HE damage estimate with armor: fraction of the damage that goes to health", _, true, 0.0, true, 1.0);
+    g_cvAirtimeReport = CreateConVar("sm_nadepractice_airtime_report", "1", "Report the grenade air time after each detonation (default for each player)", _, true, 0.0, true, 1.0);
     g_cvRespawnDelay   = CreateConVar("sm_nadepractice_respawn_delay", "1.0", "Respawn dead players after this many seconds (0 = no respawn)", _, true, 0.0, true, 30.0);
     g_cvRespawnAtDeath = CreateConVar("sm_nadepractice_respawn_at_death", "0", "After a respawn, put the player back where they died, with the same view angles", _, true, 0.0, true, 1.0);
 
@@ -500,6 +530,7 @@ public void OnPluginStart() {
     Lineups_Init();
     Hints_Init();
     Preview_Init();
+    Measure_Init();
 
     // A mode reacts to game events in Post (ARCHITECTURE.md, section 4).
     HookEvent("player_spawn", Event_PlayerSpawn, EventHookMode_Post);
@@ -642,6 +673,7 @@ void ResetClientState(int client) {
     g_PendingThrowRef[client] = 0;
     g_NextReplay[client] = 0.0;
     g_bHasDeathPos[client] = false;
+    Measure_ResetClient(client);
     g_NtRef[client] = 0;
     g_TeWindowEnd[client] = 0.0;
     g_TeRateCheck[client] = 0.0;
@@ -672,6 +704,7 @@ void ResetAllState() {
     g_ReplayEffects.Clear();
     g_bReplaySpawning = false;
     g_Tracked.Clear();
+    Measure_ResetAll();
 }
 
 // ---------------------------------------------------------------------------
@@ -791,6 +824,12 @@ public Action Timer_Equip(Handle timer, int userid) {
 // ---------------------------------------------------------------------------
 // Natives
 // ---------------------------------------------------------------------------
+
+// Real (engine) detonation of replay projectiles is available for this grenade.
+// Stage 14.2 (gamedata) replaces this placeholder.
+bool Gamedata_RealReplay(int nade) {
+    return nade < 0;
+}
 
 public int Native_IsActive(Handle plugin, int numParams) {
     return g_bActive;

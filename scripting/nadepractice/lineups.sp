@@ -90,6 +90,11 @@ void Lineups_Load() {
             lineup.hasDetonation = kv.GetNum("has_detonation", 0) != 0;
             kv.GetVector("detonation", vec);
             lineup.detonation = vec;
+            // airtime / first_contact are new (stage 12); older files do not show them.
+            kv.GetString("airtime", buffer, sizeof(buffer));
+            lineup.hasAirtime = buffer[0] != '\0';
+            lineup.airtime = kv.GetFloat("airtime", 0.0);
+            lineup.firstContact = kv.GetFloat("first_contact", -1.0);
             kv.GetString("author", lineup.author, sizeof(Lineup::author));
             kv.GetString("description", lineup.desc, sizeof(Lineup::desc));
 
@@ -160,6 +165,10 @@ bool Lineups_Save() {
         kv.SetNum("has_detonation", lineup.hasDetonation);
         vec = lineup.detonation;
         kv.SetVector("detonation", vec);
+        if (lineup.hasAirtime) {
+            kv.SetFloat("airtime", lineup.airtime);
+            kv.SetFloat("first_contact", lineup.firstContact);
+        }
         kv.SetString("author", lineup.author);
         kv.SetString("description", lineup.desc);
 
@@ -385,6 +394,9 @@ public Action Command_Save(int client, int args) {
     lineup.detonation = g_LastThrow[client].detonation;
     lineup.pathCount = g_LastThrow[client].pathCount;
     lineup.path = g_LastThrow[client].path;
+    lineup.hasAirtime = g_LastThrow[client].hasAirtime;
+    lineup.airtime = g_LastThrow[client].airtime;
+    lineup.firstContact = g_LastThrow[client].firstContact;
     GetClientName(client, lineup.author, sizeof(Lineup::author));
     lineup.desc[0] = '\0';
 
@@ -643,10 +655,18 @@ void Lineups_ShowItemMenu(int client) {
     Menu menu = new Menu(MenuHandler_LineupsItem);
     char startInfo[64];
     FormatEx(startInfo, sizeof(startInfo), "%T", !lineup.hasStart ? "Start None" : (lineup.startAuto ? "Start Auto" : "Start Manual"), client);
-    char throwName[64];
+    char throwName[64], timeInfo[96];
     ThrowNameEx(client, lineup.throwType, lineup.strength, throwName, sizeof(throwName));
-    menu.SetTitle("%s\n%T, %s\n%T: %s\n%T: %s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
-        throwName, "Lineup Start", client, startInfo,
+    timeInfo[0] = '\0';
+    if (lineup.hasAirtime) {
+        if (lineup.firstContact >= 0.0) {
+            FormatEx(timeInfo, sizeof(timeInfo), "%T\n", "Lineup Time", client, lineup.airtime, lineup.firstContact);
+        } else {
+            FormatEx(timeInfo, sizeof(timeInfo), "%T\n", "Lineup Time No Contact", client, lineup.airtime);
+        }
+    }
+    menu.SetTitle("%s\n%T, %s\n%T: %s\n%s%T: %s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
+        throwName, "Lineup Start", client, startInfo, timeInfo,
         "Lineup Author", client, lineup.author, lineup.desc);
     menu.ExitBackButton = true;
 
