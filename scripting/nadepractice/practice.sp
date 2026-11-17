@@ -620,6 +620,9 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_AddPhrase(menu, client, "edit", "Menu Edit");
     Menu_AddPhrase(menu, client, "measure", "Menu Measure");
     Menu_AddPhrase(menu, client, "spawns", "Menu Spawns");
+    char smokeText[96];
+    Smoke_MenuText(client, smokeText, sizeof(smokeText));
+    menu.AddItem("smoke", smokeText);
     Menu_AddToggle(menu, client, "noflash", "Menu Noflash", g_bNoFlash[client]);
     Menu_AddPhrase(menu, client, "hands", "Menu Hands");
     Menu_AddPhrase(menu, client, "preverror", "Menu PrevError");
@@ -666,6 +669,8 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
         Hints_CycleMarker(client);
     } else if (StrEqual(info, "target")) {
         Hints_CycleTarget(client);
+    } else if (StrEqual(info, "smoke")) {
+        Smoke_Cycle(client);
     } else if (StrEqual(info, "spawns")) {
         g_PracticeMenuPos[client] = menu.Selection;
         if (CanPractice(client)) {

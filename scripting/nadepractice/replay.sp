@@ -16,8 +16,43 @@
 #define REPLAY_SMOKE_SOUND "weapons/smokegrenade/sg_explode.wav"
 #define REPLAY_MAX_LIFE    12.0     // a replay projectile lives no longer than this, seconds
 
+// Real replay (stage 14.2): the projectile is made by the game's own Create(), which sets the
+// detonation timer, so the engine detonates it: a flash blinds everyone nearby (!noflash
+// still works), an HE explodes (damage is blocked by the mode), the smoke is real.
+// Returns false if the gamedata feature is off or the call failed.
+bool Replay_ThrowReal(int client, int nade, const float pos[3], const float vel[3]) {
+    if (!Gamedata_RealReplay(nade)) {
+        return false;
+    }
+    g_bReplaySpawning = true;
+    int entity = Gamedata_CreateProjectile(nade, client, pos, vel);
+    g_bReplaySpawning = false;
+    if (entity == -1) {
+        return false;
+    }
+    g_ReplayOwner[entity] = GetClientUserId(client);
+    SDKHook(entity, SDKHook_SetTransmit, Replay_OnTransmit);
+
+    ReplayEnt item;
+    item.ref = EntIndexToEntRef(entity);
+    item.userid = GetClientUserId(client);
+    item.nade = nade;
+    item.real = true;       // the engine detonates it; kept only to be removed when the mode stops
+    g_ReplayEnts.PushArray(item);
+
+    float now = GetGameTime();
+    Tracer_Track(entity, client, nade, pos, true, 0, now);
+    Tracer_SetEngineDetonation(entity);
+    LogDebug("replay: %N nade=%s ent=%d real Create() pos=(%.1f %.1f %.1f) vel=(%.1f %.1f %.1f)",
+        client, g_NadeKey[nade], entity, pos[0], pos[1], pos[2], vel[0], vel[1], vel[2]);
+    return true;
+}
+
 // Throws a replay projectile. Returns false on failure (the reason is in the debug log).
 bool Replay_Throw(int client, int nade, const float pos[3], const float vel[3]) {
+    if (Replay_ThrowReal(client, nade, pos, vel)) {
+        return true;
+    }
     g_bReplaySpawning = true;
     int entity = CreateEntityByName(g_NadeProjectile[nade]);
     if (entity == -1) {
@@ -127,7 +162,7 @@ void Replay_Frame(float now) {
             g_ReplayEnts.Erase(i);      // detonated by the engine or the entity was removed
             continue;
         }
-        if (now < item.detonateAt || now < item.nextCheck) {
+        if (item.real || now < item.detonateAt || now < item.nextCheck) {
             continue;
         }
 
@@ -171,7 +206,7 @@ void Replay_Detonate(int entity, ReplayEnt item) {
             }
         }
         case NADE_SMOKE: {
-            Replay_SpawnSmoke(pos);
+            Replay_SpawnSmoke(pos, Smoke_ReplayLife(client));
         }
     }
 
@@ -180,9 +215,13 @@ void Replay_Detonate(int entity, ReplayEnt item) {
     LogDebug("replay: detonated by plugin, nade=%s at (%.1f %.1f %.1f)", g_NadeKey[item.nade], pos[0], pos[1], pos[2]);
 }
 
-// Smoke cloud like a real grenade's. Visible to all players (see README, limitations).
-void Replay_SpawnSmoke(const float pos[3]) {
+// Smoke cloud like a real grenade's, lasting "life" seconds. Visible to all players
+// (see README, limitations). Also replaces the cloud of a real smoke that must live longer
+// than the game keeps it (smoke.sp).
+void Replay_SpawnSmoke(const float pos[3], float life) {
+    g_bOwnSmokeSpawning = true;
     int smoke = CreateEntityByName("env_particlesmokegrenade");
+    g_bOwnSmokeSpawning = false;
     if (smoke == -1) {
         LogDebug("replay: env_particlesmokegrenade not created");
         return;
@@ -195,7 +234,6 @@ void Replay_SpawnSmoke(const float pos[3]) {
         return;
     }
 
-    float life = g_cvReplaySmokeTime.FloatValue;
     float fadeStart = life - 5.0;
     if (fadeStart < 1.0) {
         fadeStart = 1.0;

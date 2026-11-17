@@ -157,6 +157,7 @@ enum struct ReplayEnt {
     float detonateAt;
     float nextCheck;
     float killAt;
+    bool real;              // made by the game's Create(): the engine detonates it (stage 14.2)
 }
 
 // Projectile followed by the tracer.
@@ -179,6 +180,7 @@ enum struct Tracked {
     float strength;         // throw strength used by the prediction
     float firstContact;     // time of the first bounce since spawnTime, -1 = none yet
     int bounces;
+    bool engineDet;         // replay detonated by the engine: its *_detonate event counts
 }
 
 // Lineup from the database.
@@ -238,6 +240,9 @@ ConVar g_cvReplayEngineFuse;
 ConVar g_cvReplayVisibleAll;
 ConVar g_cvReplayCooldown;
 ConVar g_cvReplaySmokeTime;
+ConVar g_cvReplayReal;
+ConVar g_cvSmokeTimeMin;
+ConVar g_cvSmokeTimeMax;
 
 // grenade physics (shared by replay and the preview model)
 ConVar g_cvSimGravity;
@@ -352,6 +357,7 @@ bool g_bReplaySpawning;
 int g_ReplayOwner[MAX_EDICTS + 1];
 ArrayList g_ReplayEnts;
 ArrayList g_ReplayEffects;
+bool g_bOwnSmokeSpawning;       // the plugin is creating a smoke cloud itself (smoke.sp)
 
 // tracer
 ArrayList g_Tracked;
@@ -419,6 +425,8 @@ float g_ErrStrSum[MAXPLAYERS + 1][3];
 #include "nadepractice/measure.sp"
 #include "nadepractice/spawns.sp"
 #include "nadepractice/timer.sp"
+#include "nadepractice/smoke.sp"
+#include "nadepractice/gamedata.sp"
 
 // ---------------------------------------------------------------------------
 // Loading
@@ -464,7 +472,10 @@ public void OnPluginStart() {
     g_cvReplayEngineFuse = CreateConVar("sm_nadepractice_replay_engine_fuse", "0", "HE/flash replay detonation: 0 = by the plugin (effect without damage or blindness), 1 = try to start the engine timer (experimental)", _, true, 0.0, true, 1.0);
     g_cvReplayVisibleAll = CreateConVar("sm_nadepractice_replay_visible_all", "0", "Show replay projectiles to all players, not only the owner", _, true, 0.0, true, 1.0);
     g_cvReplayCooldown   = CreateConVar("sm_nadepractice_replay_cooldown", "0.5", "Minimum interval between replays of one player, seconds", _, true, 0.0, true, 10.0);
-    g_cvReplaySmokeTime  = CreateConVar("sm_nadepractice_replay_smoke_time", "18.0", "How many seconds a replay smoke lasts", _, true, 2.0, true, 30.0);
+    g_cvReplaySmokeTime  = CreateConVar("sm_nadepractice_replay_smoke_time", "18.0", "How many seconds a plugin-made replay smoke lasts when the player keeps the game default duration", _, true, 2.0, true, 30.0);
+    g_cvReplayReal       = CreateConVar("sm_nadepractice_replay_real", "1", "Replay projectiles detonate for real through the game's Create() (gamedata); 0 = plugin-made detonation", _, true, 0.0, true, 1.0);
+    g_cvSmokeTimeMin     = CreateConVar("sm_nadepractice_smoke_time_min", "5", "Shortest smoke duration a player can choose, seconds", _, true, 1.0, true, 60.0);
+    g_cvSmokeTimeMax     = CreateConVar("sm_nadepractice_smoke_time_max", "60", "Longest smoke duration a player can choose, seconds", _, true, 5.0, true, 300.0);
 
     g_cvSimGravity    = CreateConVar("sm_nadepractice_sim_gravity", "0.4", "sv_gravity multiplier for grenades", _, true, 0.0, true, 5.0);
     g_cvSimElasticity = CreateConVar("sm_nadepractice_sim_elasticity", "0.45", "Grenade elasticity (fraction of speed kept after a bounce)", _, true, 0.0, true, 0.9);
@@ -539,6 +550,7 @@ public void OnPluginStart() {
     Measure_Init();
     Spawns_Init();
     Timer_Init();
+    Gamedata_Init();
 
     // A mode reacts to game events in Post (ARCHITECTURE.md, section 4).
     HookEvent("player_spawn", Event_PlayerSpawn, EventHookMode_Post);
@@ -559,7 +571,9 @@ public void OnPluginStart() {
 public void OnAllPluginsLoaded() {
     g_bHasNadethrow = LibraryExists(NADETHROW_LIBRARY);
     // Load report (ARCHITECTURE.md, section 12).
-    LogMessage("[nadepractice] %s, nadethrow: %s", PLUGIN_VERSION, g_bHasNadethrow ? "yes" : "no");
+    char gamedata[64];
+    Gamedata_Summary(gamedata, sizeof(gamedata));
+    LogMessage("[nadepractice] %s, nadethrow: %s, gamedata: %s", PLUGIN_VERSION, g_bHasNadethrow ? "yes" : "no", gamedata);
     CheckTranslations();
 }
 
@@ -643,6 +657,7 @@ public void OnClientDisconnect(int client) {
 
 public void OnEntityCreated(int entity, const char[] classname) {
     Throws_OnEntityCreated(entity, classname);
+    Smoke_OnEntityCreated(entity, classname);
 }
 
 public void OnEntityDestroyed(int entity) {
@@ -699,6 +714,7 @@ void ResetClientState(int client) {
     g_bHasDeathPos[client] = false;
     Measure_ResetClient(client);
     Timer_ResetClient(client);
+    Smoke_ResetClient(client);
     g_NtRef[client] = 0;
     g_TeWindowEnd[client] = 0.0;
     g_TeRateCheck[client] = 0.0;
@@ -850,11 +866,7 @@ public Action Timer_Equip(Handle timer, int userid) {
 // Natives
 // ---------------------------------------------------------------------------
 
-// Real (engine) detonation of replay projectiles is available for this grenade.
-// Stage 14.2 (gamedata) replaces this placeholder.
-bool Gamedata_RealReplay(int nade) {
-    return nade < 0;
-}
+
 
 public int Native_IsActive(Handle plugin, int numParams) {
     return g_bActive;

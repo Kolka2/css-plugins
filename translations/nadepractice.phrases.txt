@@ -669,4 +669,12 @@
         "#format"   "{1:.2f}"
         "en"        "Timer: {1} s"
     }
+    "Menu Smoke Time"
+    {
+        "en"        "Smoke duration"
+    }
+    "Smoke Time Default"
+    {
+        "en"        "game default"
+    }
 }

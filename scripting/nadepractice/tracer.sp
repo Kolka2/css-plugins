@@ -191,6 +191,19 @@ void Tracer_Track(int entity, int client, int nade, const float pos[3], bool rep
     g_Tracked.PushArray(item);
 }
 
+// A replay projectile made by the game's Create(): the engine detonates it and fires the
+// *_detonate event like for a real throw.
+void Tracer_SetEngineDetonation(int entity) {
+    int index = Tracer_FindByRef(EntIndexToEntRef(entity));
+    if (index == -1) {
+        return;
+    }
+    Tracked item;
+    g_Tracked.GetArray(index, item);
+    item.engineDet = true;
+    g_Tracked.SetArray(index, item);
+}
+
 int Tracer_FindByRef(int ref) {
     Tracked item;
     for (int i = 0; i < g_Tracked.Length; i++) {
@@ -365,7 +378,7 @@ public void Event_Detonate(Event event, const char[] name, bool dontBroadcast) {
     Tracked item;
     for (int i = 0; i < g_Tracked.Length; i++) {
         g_Tracked.GetArray(i, item);
-        if (item.replay || item.userid != userid || item.nade != nade) {
+        if ((item.replay && !item.engineDet) || item.userid != userid || item.nade != nade) {
             continue;
         }
         float dist = hasPos ? GetVectorDistance(pos, item.lastPos) : item.spawnTime;

@@ -1,0 +1,55 @@
+// nadepractice gamedata: static Create() of the grenade projectiles, used for the real
+// detonation of replay projectiles (docs/nadepractice/GAMEDATA.md).
+//
+// Made for Counter-Strike: Source PatchVersion=11003710 (cstrike/steam.inf), four server builds:
+//   windows    - cstrike/bin/server.dll            (32-bit, srcds.exe; no symbols: byte signatures)
+//   windows64  - cstrike/bin/x64/server.dll        (64-bit, srcds_win64.exe; no symbols: byte signatures)
+//   linux      - cstrike/bin/server_srv.so         (32-bit; symbols: @mangled name)
+//   linux64    - cstrike/bin/linux64/server_srv.so (64-bit; symbols: @mangled name)
+// If the game was updated and a signature no longer matches, the plugin turns that feature
+// off and keeps working; GAMEDATA.md explains how to find the function again.
+//
+// \x2A is a wildcard byte (addresses and call offsets that change between builds).
+
+"Games"
+{
+    "cstrike"
+    {
+        "Signatures"
+        {
+            // CHEGrenadeProjectile* CHEGrenadeProjectile::Create(const Vector &position, const QAngle &angles,
+            //     const Vector &velocity, const AngularImpulse &angVelocity, CBaseCombatCharacter *pOwner, float timer)
+            // References the string "hegrenade_projectile" and calls SetDetonateTimerLength(1.5).
+            "CHEGrenadeProjectile::Create"
+            {
+                "library"   "server"
+                "windows"   "\x55\x8B\xEC\x83\xEC\x0C\x53\x8B\x5D\x18\x56\x57\x53\xFF\x75\x0C\xFF\x75\x08\x68\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A"
+                "windows64" "\x48\x89\x5C\x24\x08\x48\x89\x6C\x24\x10\x57\x48\x83\xEC\x40\x49\x8B\xD8\x0F\x29\x74\x24\x30\x4C\x8B\xC2\x49\x8B\xE9\x4C\x8B\x4C\x24\x70\x48\x8B\xD1\x48\x8D\x0D\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A"
+                "linux"     "@_ZN20CHEGrenadeProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacterf"
+                "linux64"   "@_ZN20CHEGrenadeProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacterf"
+            }
+            // CFlashbangProjectile* CFlashbangProjectile::Create(const Vector &position, const QAngle &angles,
+            //     const Vector &velocity, const AngularImpulse &angVelocity, CBaseCombatCharacter *pOwner)
+            // References the string "flashbang_projectile".
+            "CFlashbangProjectile::Create"
+            {
+                "library"   "server"
+                "windows"   "\x55\x8B\xEC\x51\x53\x8B\x5D\x18\x56\x57\x53\xFF\x75\x0C\xFF\x75\x08\x68\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\x8B\x75\x10"
+                "windows64" "\x48\x89\x5C\x24\x08\x48\x89\x6C\x24\x10\x57\x48\x83\xEC\x30\x49\x8B\xD8\x49\x8B\xE9\x4C\x8B\x4C\x24\x60\x4C\x8B\xC2\x48\x8B\xD1\x48\x8D\x0D\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A"
+                "linux"     "@_ZN20CFlashbangProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacter"
+                "linux64"   "@_ZN20CFlashbangProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacter"
+            }
+            // CSmokeGrenadeProjectile* CSmokeGrenadeProjectile::Create(const Vector &position, const QAngle &angles,
+            //     const Vector &velocity, const AngularImpulse &angVelocity, CBaseCombatCharacter *pOwner)
+            // References the string "smokegrenade_projectile".
+            "CSmokeGrenadeProjectile::Create"
+            {
+                "library"   "server"
+                "windows"   "\x55\x8B\xEC\x51\x53\x8B\x5D\x18\x56\x57\x53\xFF\x75\x0C\xFF\x75\x08\x68\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A\xD9\xEE"
+                "windows64" "\x48\x89\x5C\x24\x08\x48\x89\x74\x24\x10\x48\x89\x7C\x24\x18\x4C\x89\x74\x24\x20\x41\x57\x48\x83\xEC\x30\x49\x8B\xD8\x4D\x8B\xF9\x4C\x8B\x4C\x24\x60\x4C\x8B\xC2\x48\x8B\xD1\x48\x8D\x0D\x2A\x2A\x2A\x2A\xE8\x2A\x2A\x2A\x2A"
+                "linux"     "@_ZN23CSmokeGrenadeProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacter"
+                "linux64"   "@_ZN23CSmokeGrenadeProjectile6CreateERK6VectorRK6QAngleS2_S2_P20CBaseCombatCharacter"
+            }
+        }
+    }
+}
