@@ -322,4 +322,109 @@
     {
         "en"        "Preview accuracy statistics reset."
     }
+    "Hint Start"
+    {
+        "en"        "Start"
+    }
+    "Hint Release"
+    {
+        "en"        "Release point"
+    }
+    "Hint No Start"
+    {
+        "en"        "No start for this run-up throw: stand where the run begins and type !setstart"
+    }
+    "Lineup Start"
+    {
+        "en"        "Start"
+    }
+    "Start None"
+    {
+        "en"        "none (at the release point)"
+    }
+    "Start Auto"
+    {
+        "en"        "found automatically"
+    }
+    "Start Manual"
+    {
+        "en"        "set by hand"
+    }
+    "Lineup Menu Edit"
+    {
+        "en"        "Edit start / release point / aim"
+    }
+    "Menu Edit"
+    {
+        "en"        "Edit start / release point / aim"
+    }
+    "Menu Target"
+    {
+        "en"        "Position check"
+    }
+    "Target Auto"
+    {
+        "en"        "auto"
+    }
+    "Target Start"
+    {
+        "en"        "start"
+    }
+    "Target Release"
+    {
+        "en"        "release point"
+    }
+    "Edit Title"
+    {
+        "#format"   "{1:s}"
+        "en"        "Edit: {1}"
+    }
+    "Edit Last Throw"
+    {
+        "en"        "last throw"
+    }
+    "Edit Menu Start"
+    {
+        "en"        "Start = where I stand"
+    }
+    "Edit Menu Release"
+    {
+        "en"        "Release point = where I stand"
+    }
+    "Edit Menu Aim"
+    {
+        "en"        "Aim = where I look"
+    }
+    "Edit Menu NoStart"
+    {
+        "en"        "Remove the start"
+    }
+    "Edit Nothing"
+    {
+        "en"        "Nothing to edit: select a lineup or throw a grenade first."
+    }
+    "Edit Need Ground"
+    {
+        "en"        "Stand on the ground to set the start."
+    }
+    "Edit Start Done"
+    {
+        "#format"   "{1:s}"
+        "en"        "{1}: start set where you stand."
+    }
+    "Edit Release Done"
+    {
+        "#format"   "{1:s}"
+        "en"        "{1}: release point set where you stand."
+    }
+    "Edit Aim Done"
+    {
+        "#format"   "{1:s}"
+        "en"        "{1}: aim set to where you look."
+    }
+    "Edit NoStart Done"
+    {
+        "#format"   "{1:s}"
+        "en"        "{1}: start removed, hints lead to the release point."
+    }
 }

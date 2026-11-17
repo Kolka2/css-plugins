@@ -173,6 +173,7 @@ void Practice_TryRespawn(int client, const char[] reason) {
         LogDebug("respawn: %N (%s) failed, still dead", client, reason);
         return;
     }
+    Movement_Clear(client);
     if (g_bHasDeathPos[client]) {
         float angles[3];
         angles = g_DeathAng[client];
@@ -488,11 +489,13 @@ void Practice_Back(int client) {
         NP_Print(client, "%t", "No Last Throw");
         return;
     }
+    // To the start if there is one, with the throw angles.
     float origin[3], angles[3];
-    origin = g_LastThrow[client].origin;
+    origin = g_LastThrow[client].hasStart ? g_LastThrow[client].startOrigin : g_LastThrow[client].origin;
     angles = g_LastThrow[client].angles;
     angles[2] = 0.0;
     TeleportEntity(client, origin, angles, view_as<float>({ 0.0, 0.0, 0.0 }));
+    Movement_Clear(client);
     char throwName[48];
     ThrowName(client, g_LastThrow[client].throwType, throwName, sizeof(throwName));
     NP_Print(client, "%t", "Returned Back", throwName);
@@ -586,6 +589,8 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_AddToggle(menu, client, "preview", "Menu Preview", g_bPreview[client]);
     Menu_AddToggle(menu, client, "hints", "Menu Hints", g_bHints[client]);
     Menu_AddChoice(menu, client, "marker", "Menu Marker", g_MarkerPhrase[g_HintMarkerStyle[client]]);
+    Menu_AddChoice(menu, client, "target", "Menu Target", g_TargetPhrase[g_HintTarget[client]]);
+    Menu_AddPhrase(menu, client, "edit", "Menu Edit");
     Menu_AddToggle(menu, client, "noflash", "Menu Noflash", g_bNoFlash[client]);
     Menu_AddPhrase(menu, client, "hands", "Menu Hands");
     Menu_AddPhrase(menu, client, "preverror", "Menu PrevError");
@@ -630,6 +635,13 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
         Hints_Toggle(client);
     } else if (StrEqual(info, "marker")) {
         Hints_CycleMarker(client);
+    } else if (StrEqual(info, "target")) {
+        Hints_CycleTarget(client);
+    } else if (StrEqual(info, "edit")) {
+        g_PracticeMenuPos[client] = menu.Selection;
+        g_bEditFromCard[client] = false;
+        Edit_ShowMenu(client);
+        reopen = false;
     } else if (StrEqual(info, "noflash")) {
         g_bNoFlash[client] = !g_bNoFlash[client];
     } else if (StrEqual(info, "hands")) {

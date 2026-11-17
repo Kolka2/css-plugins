@@ -13,6 +13,10 @@ void Lineups_Init() {
     RegConsoleCmd("sm_delete", Command_Delete, "!delete [name] - delete a lineup (the selected one without a name)");
     RegConsoleCmd("sm_rename", Command_Rename, "!rename <new name> - rename the selected lineup");
     RegConsoleCmd("sm_desc", Command_Desc, "!desc <text> - description of the selected lineup");
+    RegConsoleCmd("sm_setstart", Command_SetStart, "Start of the selected lineup (or the last throw) = where you stand");
+    RegConsoleCmd("sm_setrelease", Command_SetRelease, "Release point of the selected lineup (or the last throw) = where you stand");
+    RegConsoleCmd("sm_setaim", Command_SetAim, "Aim of the selected lineup (or the last throw) = where you look");
+    RegConsoleCmd("sm_nostart", Command_NoStart, "Remove the start of the selected lineup (or the last throw)");
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +72,14 @@ void Lineups_Load() {
             lineup.angles = vec;
             kv.GetVector("eye", vec);
             lineup.eye = vec;
+            // start_origin is new (stage 9); older files have no start: hints lead to the release point.
+            kv.GetString("start_origin", buffer, sizeof(buffer));
+            lineup.hasStart = buffer[0] != '\0';
+            if (lineup.hasStart) {
+                kv.GetVector("start_origin", vec);
+                lineup.startOrigin = vec;
+                lineup.startAuto = kv.GetNum("start_auto", 1) != 0;
+            }
             lineup.hasProj = kv.GetNum("has_projectile", 0) != 0;
             kv.GetVector("projectile_origin", vec);
             lineup.projOrigin = vec;
@@ -132,6 +144,11 @@ bool Lineups_Save() {
         kv.SetVector("angles", vec);
         vec = lineup.eye;
         kv.SetVector("eye", vec);
+        if (lineup.hasStart) {
+            vec = lineup.startOrigin;
+            kv.SetVector("start_origin", vec);
+            kv.SetNum("start_auto", lineup.startAuto);
+        }
         kv.SetNum("has_projectile", lineup.hasProj);
         vec = lineup.projOrigin;
         kv.SetVector("projectile_origin", vec);
@@ -253,11 +270,13 @@ void Lineups_Goto(int client, int index) {
     Lineup lineup;
     g_Lineups.GetArray(index, lineup);
 
+    // To the start if there is one (with the throw angles: a run-up is aimed at the start).
     float origin[3], angles[3];
-    origin = lineup.origin;
+    origin = lineup.hasStart ? lineup.startOrigin : lineup.origin;
     angles = lineup.angles;
     angles[2] = 0.0;
     TeleportEntity(client, origin, angles, view_as<float>({ 0.0, 0.0, 0.0 }));
+    Movement_Clear(client);
 
     if (FindWeaponByClass(client, g_NadeWeapon[lineup.nade]) == -1 && !Practice_IsThrowing(client)) {
         GivePlayerItem(client, g_NadeWeapon[lineup.nade]);
@@ -352,6 +371,9 @@ public Action Command_Save(int client, int args) {
     lineup.origin = g_LastThrow[client].origin;
     lineup.angles = g_LastThrow[client].angles;
     lineup.eye = g_LastThrow[client].eye;
+    lineup.hasStart = g_LastThrow[client].hasStart;
+    lineup.startAuto = g_LastThrow[client].startAuto;
+    lineup.startOrigin = g_LastThrow[client].startOrigin;
     lineup.hasProj = true;
     lineup.projOrigin = g_LastThrow[client].projOrigin;
     lineup.projVelocity = g_LastThrow[client].projVelocity;
@@ -371,6 +393,9 @@ public Action Command_Save(int client, int args) {
     NadeName(client, lineup.nade, nadeName, sizeof(nadeName));
     ThrowName(client, lineup.throwType, throwName, sizeof(throwName));
     NP_Print(client, "%t", "Lineup Saved", name, nadeName, throwName);
+    if (!lineup.hasStart && (lineup.throwType == THROW_RUN || lineup.throwType == THROW_RUNJUMP)) {
+        NP_Print(client, "%t", "Hint No Start");
+    }
     return Plugin_Handled;
 }
 
@@ -551,7 +576,7 @@ void Lineups_ShowListMenu(int client, int firstItem = 0) {
         if (filter != NADE_NONE && lineup.nade != filter) {
             continue;
         }
-        spot = lineup.origin;
+        spot = lineup.hasStart ? lineup.startOrigin : lineup.origin;
         entry[0] = GetVectorDistance(origin, spot);
         entry[1] = i;
         order.PushArray(entry);
@@ -610,14 +635,18 @@ void Lineups_ShowItemMenu(int client) {
     g_Lineups.GetArray(index, lineup);
 
     Menu menu = new Menu(MenuHandler_LineupsItem);
-    menu.SetTitle("%s\n%T, %T\n%T: %s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
-        g_ThrowPhrase[lineup.throwType], client, "Lineup Author", client, lineup.author, lineup.desc);
+    char startInfo[64];
+    FormatEx(startInfo, sizeof(startInfo), "%T", !lineup.hasStart ? "Start None" : (lineup.startAuto ? "Start Auto" : "Start Manual"), client);
+    menu.SetTitle("%s\n%T, %T\n%T: %s\n%T: %s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
+        g_ThrowPhrase[lineup.throwType], client, "Lineup Start", client, startInfo,
+        "Lineup Author", client, lineup.author, lineup.desc);
     menu.ExitBackButton = true;
 
     Menu_AddPhrase(menu, client, "goto", "Lineup Menu Goto");
     Menu_AddPhrase(menu, client, "show", "Lineup Menu Show");
     Menu_AddPhrase(menu, client, "select", "Lineup Menu Select");
     if (Lineups_CanEdit(client, false)) {
+        Menu_AddPhrase(menu, client, "edit", "Lineup Menu Edit");
         Menu_AddPhrase(menu, client, "delete", "Lineup Menu Delete");
     }
     menu.Display(client, MENU_TIME_FOREVER);
@@ -655,6 +684,12 @@ public int MenuHandler_LineupsItem(Menu menu, MenuAction action, int client, int
     } else if (StrEqual(info, "select")) {
         Hints_Select(client, g_MenuLineup[client]);
         NP_Print(client, "%t", "Lineup Selected");
+    } else if (StrEqual(info, "edit")) {
+        // The edit menu works on the selected lineup: select this one.
+        Hints_Select(client, g_MenuLineup[client]);
+        g_bEditFromCard[client] = true;
+        Edit_ShowMenu(client);
+        return 0;
     } else if (StrEqual(info, "delete")) {
         if (Lineups_CanEdit(client)) {
             Lineups_Delete(client, index);
@@ -664,5 +699,172 @@ public int MenuHandler_LineupsItem(Menu menu, MenuAction action, int client, int
         return 0;
     }
     Lineups_ShowItemMenu(client);
+    return 0;
+}
+
+// ---------------------------------------------------------------------------
+// Editing the start, the release point and the aim (stage 9).
+// The commands work on the selected lineup; without one, on the last throw (before !save).
+// A lineup change is written to the map file at once.
+// ---------------------------------------------------------------------------
+
+// Returns the lineup index, -1 for the last throw, or -2 if there is nothing to edit
+// (the player has been told why).
+int Edit_Target(int client) {
+    int index = Lineups_IndexById(g_SelectedLineup[client]);
+    if (index != -1) {
+        return Lineups_CanEdit(client) ? index : -2;
+    }
+    if (g_LastThrow[client].valid) {
+        return -1;
+    }
+    NP_Print(client, "%t", "Edit Nothing");
+    return -2;
+}
+
+void Edit_Apply(int client, int what) {
+    if (!CanPractice(client)) {
+        return;
+    }
+    int index = Edit_Target(client);
+    if (index == -2) {
+        return;
+    }
+
+    float origin[3], eye[3], angles[3];
+    GetClientAbsOrigin(client, origin);
+    GetClientEyePosition(client, eye);
+    GetClientEyeAngles(client, angles);
+    angles[2] = 0.0;
+    if (what == EDIT_START && !(GetEntityFlags(client) & FL_ONGROUND)) {
+        NP_Print(client, "%t", "Edit Need Ground");
+        return;
+    }
+
+    char name[64];
+    if (index >= 0) {
+        Lineup lineup;
+        g_Lineups.GetArray(index, lineup);
+        switch (what) {
+            case EDIT_START: {
+                lineup.hasStart = true;
+                lineup.startAuto = false;
+                lineup.startOrigin = origin;
+            }
+            case EDIT_RELEASE: {
+                lineup.origin = origin;
+                lineup.eye = eye;
+            }
+            case EDIT_AIM: {
+                lineup.angles = angles;
+            }
+            case EDIT_NOSTART: {
+                lineup.hasStart = false;
+            }
+        }
+        g_Lineups.SetArray(index, lineup);
+        Lineups_Save();
+        Hints_Refresh(lineup.id);
+        strcopy(name, sizeof(name), lineup.name);
+    } else {
+        switch (what) {
+            case EDIT_START: {
+                g_LastThrow[client].hasStart = true;
+                g_LastThrow[client].startAuto = false;
+                g_LastThrow[client].startOrigin = origin;
+            }
+            case EDIT_RELEASE: {
+                g_LastThrow[client].origin = origin;
+                g_LastThrow[client].eye = eye;
+            }
+            case EDIT_AIM: {
+                g_LastThrow[client].angles = angles;
+            }
+            case EDIT_NOSTART: {
+                g_LastThrow[client].hasStart = false;
+            }
+        }
+        FormatEx(name, sizeof(name), "%T", "Edit Last Throw", client);
+    }
+
+    char whatKey[4][] = { "start", "release", "aim", "nostart" };
+    char whatPhrase[4][] = { "Edit Start Done", "Edit Release Done", "Edit Aim Done", "Edit NoStart Done" };
+    LogDebug("edit: %N %s of %s (index %d) at (%.1f %.1f %.1f) ang (%.2f %.2f)", client, whatKey[what], name, index,
+        origin[0], origin[1], origin[2], angles[0], angles[1]);
+    NP_Print(client, "%t", whatPhrase[what], name);
+}
+
+public Action Command_SetStart(int client, int args) {
+    Edit_Apply(client, EDIT_START);
+    return Plugin_Handled;
+}
+
+public Action Command_SetRelease(int client, int args) {
+    Edit_Apply(client, EDIT_RELEASE);
+    return Plugin_Handled;
+}
+
+public Action Command_SetAim(int client, int args) {
+    Edit_Apply(client, EDIT_AIM);
+    return Plugin_Handled;
+}
+
+public Action Command_NoStart(int client, int args) {
+    Edit_Apply(client, EDIT_NOSTART);
+    return Plugin_Handled;
+}
+
+// Edit menu. Back returns to the lineup card it was opened from, otherwise to !practice.
+void Edit_ShowMenu(int client) {
+    Menu menu = new Menu(MenuHandler_Edit);
+    char target[64];
+    int index = Lineups_IndexById(g_SelectedLineup[client]);
+    if (index != -1) {
+        Lineup lineup;
+        g_Lineups.GetArray(index, lineup);
+        strcopy(target, sizeof(target), lineup.name);
+    } else {
+        FormatEx(target, sizeof(target), "%T", "Edit Last Throw", client);
+    }
+    menu.SetTitle("%T", "Edit Title", client, target);
+    menu.ExitBackButton = true;
+    Menu_AddPhrase(menu, client, "start", "Edit Menu Start");
+    Menu_AddPhrase(menu, client, "release", "Edit Menu Release");
+    Menu_AddPhrase(menu, client, "aim", "Edit Menu Aim");
+    Menu_AddPhrase(menu, client, "nostart", "Edit Menu NoStart");
+    menu.Display(client, MENU_TIME_FOREVER);
+}
+
+public int MenuHandler_Edit(Menu menu, MenuAction action, int client, int item) {
+    if (action == MenuAction_End) {
+        delete menu;
+        return 0;
+    }
+    if (!g_bActive) {
+        return 0;
+    }
+    if (action == MenuAction_Cancel && item == MenuCancel_ExitBack) {
+        if (g_bEditFromCard[client]) {
+            Lineups_ShowItemMenu(client);
+        } else {
+            Practice_ShowMenu(client, g_PracticeMenuPos[client]);
+        }
+        return 0;
+    }
+    if (action != MenuAction_Select) {
+        return 0;
+    }
+    char info[16];
+    menu.GetItem(item, info, sizeof(info));
+    if (StrEqual(info, "start")) {
+        Edit_Apply(client, EDIT_START);
+    } else if (StrEqual(info, "release")) {
+        Edit_Apply(client, EDIT_RELEASE);
+    } else if (StrEqual(info, "aim")) {
+        Edit_Apply(client, EDIT_AIM);
+    } else if (StrEqual(info, "nostart")) {
+        Edit_Apply(client, EDIT_NOSTART);
+    }
+    Edit_ShowMenu(client);
     return 0;
 }

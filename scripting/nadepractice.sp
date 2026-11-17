@@ -78,6 +78,19 @@ public Plugin myinfo = {
 #define MARKER_COUNT  3
 char g_MarkerPhrase[MARKER_COUNT][] = { "Marker Frame", "Marker Cross", "Marker Sprite" };
 
+// Target of the position check in hints.
+#define TARGET_AUTO    0
+#define TARGET_START   1
+#define TARGET_RELEASE 2
+#define TARGET_COUNT   3
+char g_TargetPhrase[TARGET_COUNT][] = { "Target Auto", "Target Start", "Target Release" };
+
+// What the edit commands change.
+#define EDIT_START    0
+#define EDIT_RELEASE  1
+#define EDIT_AIM      2
+#define EDIT_NOSTART  3
+
 // Chat prefix: brackets in the default color, the plugin name in green (CLAUDE.md).
 #define CHAT_PREFIX "\x01[\x04NadePractice\x01] "
 
@@ -106,6 +119,9 @@ enum struct ThrowInfo {
     int buttons;
     int flags;
     int throwType;
+    bool hasStart;          // where the run-up / jump started; none = start at the release point
+    bool startAuto;         // the start was found automatically (false = set with !setstart)
+    float startOrigin[3];
     bool hasProj;
     float projOrigin[3];    // initial projectile position
     float projVelocity[3];  // initial projectile velocity
@@ -150,9 +166,12 @@ enum struct Lineup {
     char name[64];
     int nade;
     int throwType;
-    float origin[3];
+    float origin[3];        // release point: player position (feet) when the grenade left the hand
     float angles[3];
     float eye[3];
+    bool hasStart;          // where to stand before the run-up / jump; none = at the release point
+    bool startAuto;
+    float startOrigin[3];
     bool hasProj;
     float projOrigin[3];
     float projVelocity[3];
@@ -208,6 +227,8 @@ ConVar g_cvTraceBounceDv;
 
 // lineups
 ConVar g_cvEditAccess;
+ConVar g_cvStartSpeed;
+ConVar g_cvStartLookback;
 
 // hints
 ConVar g_cvHintInterval;
@@ -216,6 +237,7 @@ ConVar g_cvHintAngleTol;
 ConVar g_cvHintMode;
 ConVar g_cvHintUnicode;
 ConVar g_cvHintLookDist;
+ConVar g_cvHintTarget;
 ConVar g_cvHintMarker;
 ConVar g_cvHintMarkerWidth;
 
@@ -301,6 +323,7 @@ int g_MenuLineup[MAXPLAYERS + 1];
 bool g_bMenuFromPractice[MAXPLAYERS + 1];   // lineup menu opened from !practice: has a Back button
 int g_PracticeMenuPos[MAXPLAYERS + 1];      // first item of the !practice page to return to
 int g_ListMenuPos[MAXPLAYERS + 1];          // first item of the lineup list page to return to
+bool g_bEditFromCard[MAXPLAYERS + 1];       // edit menu opened from a lineup card (Back returns there)
 
 // hints
 Handle g_HudSync;
@@ -309,8 +332,15 @@ int g_SelectedLineup[MAXPLAYERS + 1];
 float g_NextHint[MAXPLAYERS + 1];
 float g_NextHintDraw[MAXPLAYERS + 1];
 bool g_bHintShown[MAXPLAYERS + 1];
-float g_HintGround[MAXPLAYERS + 1][3];
-float g_HintMarker[MAXPLAYERS + 1][3];
+bool g_bHintHasStart[MAXPLAYERS + 1];
+float g_HintStart[MAXPLAYERS + 1][3];       // ground point of the start
+float g_HintRelease[MAXPLAYERS + 1][3];     // ground point under the release point
+float g_HintStartMarker[MAXPLAYERS + 1][3]; // aim marker seen from the start
+float g_HintReleaseMarker[MAXPLAYERS + 1][3];
+float g_HintStartMarkerDist[MAXPLAYERS + 1];
+float g_HintReleaseMarkerDist[MAXPLAYERS + 1];
+int g_HintTarget[MAXPLAYERS + 1];           // TARGET_* chosen by the player
+float g_HintMarker[MAXPLAYERS + 1][3];      // marker of the current target
 float g_HintMarkerDist[MAXPLAYERS + 1];     // distance from the eyes to the aim marker
 int g_HintMarkerStyle[MAXPLAYERS + 1];      // MARKER_* chosen by the player
 
@@ -324,6 +354,7 @@ float g_ErrMax[MAXPLAYERS + 1];
 float g_ErrLast[MAXPLAYERS + 1];
 
 #include "nadepractice/util.sp"
+#include "nadepractice/movement.sp"
 #include "nadepractice/throws.sp"
 #include "nadepractice/replay.sp"
 #include "nadepractice/practice.sp"
@@ -388,6 +419,8 @@ public void OnPluginStart() {
     g_cvTraceBounceDv = CreateConVar("sm_nadepractice_trace_bounce_dv", "25.0", "Bounce detection: velocity change per tick beyond gravity, units/s", _, true, 1.0, true, 500.0);
 
     g_cvEditAccess = CreateConVar("sm_nadepractice_edit_access", "0", "Who may change the lineup database: 0 = all players, 1 = admins only (override sm_nadepractice_edit, generic flag by default)", _, true, 0.0, true, 1.0);
+    g_cvStartSpeed    = CreateConVar("sm_nadepractice_start_speed", "10.0", "Run-up start: the last point on the ground with horizontal speed below this", _, true, 0.0, true, 250.0);
+    g_cvStartLookback = CreateConVar("sm_nadepractice_start_lookback", "3.0", "How many seconds back to look for the run-up start", _, true, 0.5, true, MV_MAX_SECONDS);
 
     g_cvHintInterval  = CreateConVar("sm_nadepractice_hint_interval", "0.25", "Hint update period, seconds", _, true, 0.05, true, 2.0);
     g_cvHintPosRadius = CreateConVar("sm_nadepractice_hint_pos_radius", "6.0", "Position tolerance, horizontal units", _, true, 1.0, true, 64.0);
@@ -395,6 +428,7 @@ public void OnPluginStart() {
     g_cvHintMode      = CreateConVar("sm_nadepractice_hint_mode", "0", "Hint output: 0 = KeyHintText (right panel), 1 = HintText, 2 = HUD text (colored)", _, true, 0.0, true, 2.0);
     g_cvHintUnicode   = CreateConVar("sm_nadepractice_hint_unicode", "1", "Arrows in hints: 1 = unicode, 0 = ASCII", _, true, 0.0, true, 1.0);
     g_cvHintLookDist  = CreateConVar("sm_nadepractice_hint_look_distance", "300.0", "Distance from the eyes of the aim marker (closer if a wall is in the way)", _, true, 32.0, true, 4000.0);
+    g_cvHintTarget    = CreateConVar("sm_nadepractice_hint_target", "0", "Default target of the position check: 0 = auto (the start if it is away from the release point), 1 = start, 2 = release point", _, true, 0.0, true, 2.0);
     g_cvHintMarker    = CreateConVar("sm_nadepractice_hint_marker", "0", "Default aim marker: 0 = tolerance frame, 1 = cross, 2 = glow sprite (each player can change it in the menu)", _, true, 0.0, true, 2.0);
     g_cvHintMarkerWidth = CreateConVar("sm_nadepractice_hint_marker_width", "0.6", "Line width of the aim frame and cross", _, true, 0.1, true, 5.0);
 
@@ -500,6 +534,12 @@ public void OnEntityDestroyed(int entity) {
     Throws_OnEntityDestroyed(entity);
 }
 
+public void OnPlayerRunCmdPost(int client, int buttons) {
+    if (g_bActive && !IsFakeClient(client) && IsPlayerAlive(client)) {
+        Movement_Record(client, buttons);
+    }
+}
+
 public void OnGameFrame() {
     if (!g_bActive) {
         return;
@@ -547,6 +587,8 @@ void ResetClientState(int client) {
     g_bMenuFromPractice[client] = false;
     g_PracticeMenuPos[client] = 0;
     g_ListMenuPos[client] = 0;
+    g_bEditFromCard[client] = false;
+    Movement_Clear(client);
     Tracer_ResetClient(client);
     Hints_ResetClient(client);
     Preview_ResetClient(client);

@@ -1,13 +1,24 @@
 /*
- * hints.sp - hints for the selected lineup: a ring at the throw spot, an aim
- * marker, a ring at the landing spot, text with the distance and the aim
- * deviation. Everything is visible to the player only.
+ * hints.sp - hints for the selected lineup: rings at the start and at the release
+ * point with a line between them (the run-up), an aim marker, a ring at the landing
+ * spot, text with the distance and the aim deviation. Everything is visible to the
+ * player only.
+ *
+ * Two places of a lineup (stage 9): the start - where to stand before the run-up or the
+ * jump - and the release point, where the grenade left the hand. The position check
+ * refers to one of them (TARGET_*, chosen in the menu): auto = the start if it exists
+ * and is farther than the position tolerance from the release point, otherwise the
+ * release point.
  */
 
 #define HINT_DRAW_PERIOD 1.0    // how often the rings are redrawn, seconds
 
 char g_ArrowsUnicode[8][] = { "↑", "↖", "←", "↙", "↓", "↘", "→", "↗" };
 char g_ArrowsAscii[8][] = { "^", "<^", "<", "<v", "v", "v>", ">", "^>" };
+
+int g_ColorWait[4] = { 255, 220, 60, 255 };     // yellow: not in tolerance yet
+int g_ColorOk[4] = { 60, 255, 60, 255 };        // green: in tolerance
+int g_ColorSecond[4] = { 110, 200, 255, 255 };  // light blue: the other place and the run-up line
 
 void Hints_Init() {
     RegConsoleCmd("sm_hints", Command_Hints, "Hints for the selected lineup (toggle)");
@@ -20,11 +31,52 @@ void Hints_ResetClient(int client) {
     g_NextHint[client] = 0.0;
     g_NextHintDraw[client] = 0.0;
     g_bHintShown[client] = false;
+    g_bHintHasStart[client] = false;
     g_HintMarkerStyle[client] = g_cvHintMarker.IntValue;
+    g_HintTarget[client] = g_cvHintTarget.IntValue;
 }
 
 public bool Hints_TraceWorld(int entity, int contentsMask) {
     return entity == 0 || entity > MaxClients;
+}
+
+// Ground point under a position (a jump throw is released in the air).
+void Hints_GroundBelow(const float pos[3], float ground[3]) {
+    float from[3], below[3];
+    from = pos;
+    from[2] += 2.0;
+    below = pos;
+    below[2] -= 256.0;
+    TR_TraceRayFilter(from, below, MASK_PLAYERSOLID, RayType_EndPoint, Hints_TraceWorld);
+    if (TR_DidHit()) {
+        TR_GetEndPosition(ground);
+    } else {
+        ground = pos;
+    }
+}
+
+// Aim marker: a point on the view ray from the eyes of a player standing at "ground".
+// Returns the distance from the eyes to the marker.
+float Hints_ComputeMarker(const float ground[3], float eyeHeight, const float lineupAngles[3], float marker[3]) {
+    float eye[3], angles[3], forwardDir[3], target[3];
+    eye = ground;
+    eye[2] += eyeHeight;
+    angles = lineupAngles;
+    GetAngleVectors(angles, forwardDir, NULL_VECTOR, NULL_VECTOR);
+    float dist = g_cvHintLookDist.FloatValue;
+    for (int i = 0; i < 3; i++) {
+        target[i] = eye[i] + forwardDir[i] * dist;
+    }
+    TR_TraceRayFilter(eye, target, MASK_SOLID, RayType_EndPoint, Hints_TraceWorld);
+    // Stop a bit short of the wall so the marker does not sink into it.
+    float reach = dist * TR_GetFraction() - 8.0;
+    if (reach < 16.0) {
+        reach = 16.0;
+    }
+    for (int i = 0; i < 3; i++) {
+        marker[i] = eye[i] + forwardDir[i] * reach;
+    }
+    return reach;
 }
 
 // Selects a lineup for hints and precomputes the points to draw.
@@ -36,46 +88,35 @@ void Hints_Select(int client, int id) {
     Lineup lineup;
     g_Lineups.GetArray(index, lineup);
 
-    // A jump throw position is recorded in the air: the hint leads to the ground point below it.
-    float origin[3], below[3], ground[3];
-    origin = lineup.origin;
-    below = origin;
-    below[2] -= 256.0;
-    TR_TraceRayFilter(origin, below, MASK_PLAYERSOLID, RayType_EndPoint, Hints_TraceWorld);
-    if (TR_DidHit()) {
-        TR_GetEndPosition(ground);
-    } else {
-        ground = origin;
+    float release[3], start[3], marker[3];
+    release = lineup.origin;
+    Hints_GroundBelow(release, g_HintRelease[client]);
+    float releaseEye = (lineup.throwType == THROW_CROUCH) ? 47.0 : 64.0;
+    g_HintReleaseMarkerDist[client] = Hints_ComputeMarker(g_HintRelease[client], releaseEye, lineup.angles, marker);
+    g_HintReleaseMarker[client] = marker;
+
+    g_bHintHasStart[client] = lineup.hasStart;
+    if (lineup.hasStart) {
+        start = lineup.startOrigin;
+        Hints_GroundBelow(start, g_HintStart[client]);
+        // The player stands up at the start of a run-up or a jump.
+        g_HintStartMarkerDist[client] = Hints_ComputeMarker(g_HintStart[client], 64.0, lineup.angles, marker);
+        g_HintStartMarker[client] = marker;
     }
 
-    // Aim marker: a point on the view ray from the eyes of a player standing at the throw spot.
-    float eye[3], angles[3], forwardDir[3], target[3], marker[3];
-    eye = ground;
-    eye[2] += (lineup.throwType == THROW_CROUCH) ? 47.0 : 64.0;
-    angles = lineup.angles;
-    GetAngleVectors(angles, forwardDir, NULL_VECTOR, NULL_VECTOR);
-    float dist = g_cvHintLookDist.FloatValue;
-    for (int i = 0; i < 3; i++) {
-        target[i] = eye[i] + forwardDir[i] * dist;
-    }
-    TR_TraceRayFilter(eye, target, MASK_SOLID, RayType_EndPoint, Hints_TraceWorld);
-    float fraction = TR_GetFraction();
-    // Stop a bit short of the wall so the sprite does not sink into it.
-    float reach = dist * fraction - 8.0;
-    if (reach < 16.0) {
-        reach = 16.0;
-    }
-    for (int i = 0; i < 3; i++) {
-        marker[i] = eye[i] + forwardDir[i] * reach;
-    }
-
-    g_HintGround[client] = ground;
-    g_HintMarker[client] = marker;
-    g_HintMarkerDist[client] = reach;
     g_SelectedLineup[client] = id;
     g_bHints[client] = true;
     g_NextHint[client] = 0.0;
     g_NextHintDraw[client] = 0.0;
+}
+
+// Recomputes the hints of everyone who selected this lineup (after an edit).
+void Hints_Refresh(int id) {
+    for (int client = 1; client <= MaxClients; client++) {
+        if (g_SelectedLineup[client] == id && IsClientInGame(client)) {
+            Hints_Select(client, id);
+        }
+    }
 }
 
 void Hints_Deselect(int client) {
@@ -88,6 +129,30 @@ void Hints_Toggle(int client) {
     if (!g_bHints[client]) {
         Hints_ClearText(client);
     }
+}
+
+void Hints_CycleTarget(int client) {
+    g_HintTarget[client] = (g_HintTarget[client] + 1) % TARGET_COUNT;
+    g_NextHint[client] = 0.0;
+    g_NextHintDraw[client] = 0.0;
+}
+
+// Whether the position check refers to the start (otherwise to the release point).
+bool Hints_TargetIsStart(int client) {
+    if (!g_bHintHasStart[client]) {
+        return false;
+    }
+    switch (g_HintTarget[client]) {
+        case TARGET_START: {
+            return true;
+        }
+        case TARGET_RELEASE: {
+            return false;
+        }
+    }
+    float dx = g_HintStart[client][0] - g_HintRelease[client][0];
+    float dy = g_HintStart[client][1] - g_HintRelease[client][1];
+    return SquareRoot(dx * dx + dy * dy) > g_cvHintPosRadius.FloatValue;
 }
 
 public Action Command_Hints(int client, int args) {
@@ -119,7 +184,7 @@ void Hints_ShowText(int client, const char[] text, bool ready) {
             PrintHintText(client, "%s", text);
         }
         case 2: {
-            // CSS-VERIFY: HudMsg (ShowSyncHudText) is displayed in CS:S; if not, use modes 0 and 1.
+            // Confirmed on the server: HudMsg (ShowSyncHudText) is displayed and turns green.
             float hold = g_cvHintInterval.FloatValue + 0.2;
             if (ready) {
                 SetHudTextParams(-1.0, 0.62, hold, 60, 255, 60, 255, 0, 0.0, 0.0, 0.0);
@@ -129,7 +194,7 @@ void Hints_ShowText(int client, const char[] text, bool ready) {
             ShowSyncHudText(client, g_HudSync, "%s", text);
         }
         default: {
-            // CSS-VERIFY: KeyHintText shows multi-line text on the right without a sound.
+            // Confirmed on the server: KeyHintText shows multi-line text on the right.
             Hints_SendKeyHint(client, text);
         }
     }
@@ -141,7 +206,6 @@ void Hints_ClearText(int client) {
         Hints_SendKeyHint(client, "");
     }
     g_bHintShown[client] = false;
-    g_HintMarkerStyle[client] = g_cvHintMarker.IntValue;
 }
 
 // ---------------------------------------------------------------------------
@@ -174,9 +238,10 @@ void Hints_DrawMarker(int client, const float lineupAngles[3], bool aimOk, float
     float halfUp = dist * Tangent(DegToRad(tol));
     float halfRight = dist * Tangent(DegToRad(tol * Cosine(DegToRad(lineupAngles[0]))));
 
-    int color[4] = { 255, 220, 60, 255 };
+    int color[4];
+    color = g_ColorWait;
     if (aimOk) {
-        color = { 60, 255, 60, 255 };
+        color = g_ColorOk;
     }
     float width = g_cvHintMarkerWidth.FloatValue;
     float a[3], b[3], c[3], d[3];
@@ -237,16 +302,25 @@ void Hints_Frame(int client, float now) {
     g_Lineups.GetArray(index, lineup);
 
     // Called several times a second: check every phrase before formatting.
-    if (!PhraseExists("Hint Position") || !PhraseExists("Hint Aim") || !PhraseExists("Hint Throw")
-        || !PhraseExists("Hint Ready") || !PhraseExists(g_NadePhrase[lineup.nade])
-        || !PhraseExists(g_ThrowPhrase[lineup.throwType])) {
+    if (!PhraseExists("Hint Start") || !PhraseExists("Hint Release") || !PhraseExists("Hint Aim")
+        || !PhraseExists("Hint Throw") || !PhraseExists("Hint Ready") || !PhraseExists("Hint No Start")
+        || !PhraseExists(g_NadePhrase[lineup.nade]) || !PhraseExists(g_ThrowPhrase[lineup.throwType])) {
         return;
     }
 
+    bool atStart = Hints_TargetIsStart(client);
     float origin[3], angles[3], ground[3];
     GetClientAbsOrigin(client, origin);
     GetClientEyeAngles(client, angles);
-    ground = g_HintGround[client];
+    if (atStart) {
+        ground = g_HintStart[client];
+        g_HintMarker[client] = g_HintStartMarker[client];
+        g_HintMarkerDist[client] = g_HintStartMarkerDist[client];
+    } else {
+        ground = g_HintRelease[client];
+        g_HintMarker[client] = g_HintReleaseMarker[client];
+        g_HintMarkerDist[client] = g_HintReleaseMarkerDist[client];
+    }
 
     // Position: horizontal distance and direction relative to the view.
     float dx = ground[0] - origin[0];
@@ -263,16 +337,18 @@ void Hints_Frame(int client, float now) {
     bool ready = posOk && pitchOk && yawOk;
 
     bool unicode = g_cvHintUnicode.BoolValue;
-    char posLine[64], aimLine[96], throwName[48], text[320];
+    char posLine[80], aimLine[96], throwName[48], text[400];
     FormatEx(throwName, sizeof(throwName), "%T", g_ThrowPhrase[lineup.throwType], client);
+    char posPhrase[16];
+    strcopy(posPhrase, sizeof(posPhrase), atStart ? "Hint Start" : "Hint Release");
 
     if (posOk) {
-        FormatEx(posLine, sizeof(posLine), "%T: OK", "Hint Position", client);
+        FormatEx(posLine, sizeof(posLine), "%T: OK", posPhrase, client);
     } else {
         float toSpot = RadToDeg(ArcTangent2(dy, dx));
         int sector = RoundToNearest(NormalizeAngle(toSpot - angles[1]) / 45.0);
         sector = (sector + 8) % 8;
-        FormatEx(posLine, sizeof(posLine), "%T: %d u %s", "Hint Position", client, RoundToNearest(dist),
+        FormatEx(posLine, sizeof(posLine), "%T: %d u %s", posPhrase, client, RoundToNearest(dist),
             unicode ? g_ArrowsUnicode[sector] : g_ArrowsAscii[sector]);
     }
 
@@ -295,6 +371,10 @@ void Hints_Frame(int client, float now) {
 
     FormatEx(text, sizeof(text), "%s [%T]\n%T: %s\n%s\n%s", lineup.name, g_NadePhrase[lineup.nade], client,
         "Hint Throw", client, throwName, posLine, aimLine);
+    // A run-up throw without a start: the release point alone does not tell where to begin.
+    if (!lineup.hasStart && (lineup.throwType == THROW_RUN || lineup.throwType == THROW_RUNJUMP)) {
+        Format(text, sizeof(text), "%s\n%T", text, "Hint No Start", client);
+    }
     if (ready) {
         Format(text, sizeof(text), "%s\n%T", text, "Hint Ready", client, throwName);
     }
@@ -309,19 +389,40 @@ void Hints_Frame(int client, float now) {
         return;
     }
     g_NextHintDraw[client] = now + HINT_DRAW_PERIOD;
-    float life = HINT_DRAW_PERIOD + 0.2;
+    Hints_DrawPlaces(client, lineup, atStart, posOk, HINT_DRAW_PERIOD + 0.2);
+}
 
-    float ring[3], landing[3];
-    ring = ground;
-    ring[2] += 2.0;
+// Rings: the target place (yellow, green in tolerance), the other place (smaller, light blue)
+// with the run-up line between them, and the landing spot.
+void Hints_DrawPlaces(int client, const Lineup lineup, bool atStart, bool posOk, float life) {
+    float radius = g_cvHintPosRadius.FloatValue;
+    float main[3], other[3];
+    main = atStart ? g_HintStart[client] : g_HintRelease[client];
+    main[2] += 2.0;
     // CSS-VERIFY: the ring size matches sm_nadepractice_hint_pos_radius.
-    int ringColor[4] = { 255, 220, 60, 255 };
-    if (ready) {
-        ringColor = { 60, 255, 60, 255 };
+    int color[4];
+    color = g_ColorWait;
+    if (posOk) {
+        color = g_ColorOk;
     }
-    Draw_Ring(client, ring, g_cvHintPosRadius.FloatValue * 2.0 + 8.0, life, 2.0, ringColor);
+    Draw_Ring(client, main, radius * 2.0 + 8.0, life, 2.0, color);
+
+    if (g_bHintHasStart[client]) {
+        other = atStart ? g_HintRelease[client] : g_HintStart[client];
+        other[2] += 2.0;
+        if (GetVectorDistance(main, other) > 1.0) {
+            Draw_Ring(client, other, radius + 6.0, life, 1.5, g_ColorSecond);
+            float from[3], to[3];
+            from = g_HintStart[client];
+            to = g_HintRelease[client];
+            from[2] += 3.0;
+            to[2] += 3.0;
+            Draw_Beam(client, from, to, life, 1.0, g_ColorSecond);
+        }
+    }
 
     if (lineup.hasDetonation) {
+        float landing[3];
         landing = lineup.detonation;
         Draw_Ring(client, landing, 60.0, life, 2.0, g_NadeColor[lineup.nade]);
     }

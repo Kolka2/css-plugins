@@ -87,6 +87,49 @@ void Throws_Snapshot(int client, int nade) {
     g_LastThrow[client].hasProj = false;
     g_LastThrow[client].hasDetonation = false;
     g_LastThrow[client].pathCount = 0;
+
+    float start[3];
+    g_LastThrow[client].hasStart = Throws_FindStart(client, type, start);
+    g_LastThrow[client].startAuto = true;
+    g_LastThrow[client].startOrigin = start;
+}
+
+// Where the throw started, from the movement buffer:
+//   standing / crouched  - no separate start (the start is the release point);
+//   jump                 - the last tick on the ground before the takeoff;
+//   running / run + jump - the last point on the ground with horizontal speed below
+//                          sm_nadepractice_start_speed, no older than sm_nadepractice_start_lookback.
+// Returns false if there is no separate start (or it was not found).
+bool Throws_FindStart(int client, int type, float start[3]) {
+    float speed = g_cvStartSpeed.FloatValue;
+    float lookback = g_cvStartLookback.FloatValue;
+    int back = -1;
+    switch (type) {
+        case THROW_JUMP: {
+            back = Movement_LastOnGround(client, 0);
+        }
+        case THROW_RUN: {
+            back = Movement_FindRunStart(client, 0, speed, lookback);
+        }
+        case THROW_RUNJUMP: {
+            int takeoff = Movement_LastOnGround(client, 0);
+            if (takeoff != -1) {
+                back = Movement_FindRunStart(client, takeoff, speed, lookback);
+            }
+        }
+        default: {
+            return false;
+        }
+    }
+    float entry[MV_SIZE];
+    if (back == -1 || !Movement_Get(client, back, entry)) {
+        LogDebug("start: %N, %s throw, start not found (buffer %d ticks)", client, g_ThrowKey[type], g_MoveCount[client]);
+        return false;
+    }
+    Movement_Position(entry, start);
+    LogDebug("start: %N, %s throw, start %d ticks (%.2f s) before, at (%.1f %.1f %.1f)", client, g_ThrowKey[type],
+        back, GetGameTime() - entry[MV_TIME], start[0], start[1], start[2]);
+    return true;
 }
 
 public void Throws_Frame_Init(int ref) {
@@ -129,12 +172,14 @@ public void Throws_Frame_Init(int ref) {
     g_LastThrow[owner].projVelocity = vel;
     g_LastThrow[owner].hasProj = hasVel;
 
-    LogDebug("throw #%d: %N nade=%s type=%s late=%d player=(%.1f %.1f %.1f) ang=(%.2f %.2f) plvel=(%.1f %.1f %.1f) proj=(%.1f %.1f %.1f) projvel=(%.1f %.1f %.1f)",
+    LogDebug("throw #%d: %N nade=%s type=%s late=%d player=(%.1f %.1f %.1f) ang=(%.2f %.2f) plvel=(%.1f %.1f %.1f) proj=(%.1f %.1f %.1f) projvel=(%.1f %.1f %.1f) start=%s(%.1f %.1f %.1f)",
         g_LastThrow[owner].serial, owner, g_NadeKey[nade], g_ThrowKey[g_LastThrow[owner].throwType], late,
         g_LastThrow[owner].origin[0], g_LastThrow[owner].origin[1], g_LastThrow[owner].origin[2],
         g_LastThrow[owner].angles[0], g_LastThrow[owner].angles[1],
         g_LastThrow[owner].velocity[0], g_LastThrow[owner].velocity[1], g_LastThrow[owner].velocity[2],
-        pos[0], pos[1], pos[2], vel[0], vel[1], vel[2]);
+        pos[0], pos[1], pos[2], vel[0], vel[1], vel[2],
+        g_LastThrow[owner].hasStart ? "" : "none", g_LastThrow[owner].startOrigin[0], g_LastThrow[owner].startOrigin[1],
+        g_LastThrow[owner].startOrigin[2]);
 
     Tracer_Track(entity, owner, nade, pos, false, g_LastThrow[owner].serial);
     if (hasVel) {
