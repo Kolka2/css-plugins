@@ -282,6 +282,7 @@ void Lineups_Goto(int client, int index) {
     Lineup lineup;
     g_Lineups.GetArray(index, lineup);
 
+    Timer_OnPluginTeleport(client, "!goto");
     // To the start if there is one (with the throw angles: a run-up is aimed at the start).
     float origin[3], angles[3];
     origin = lineup.hasStart ? lineup.startOrigin : lineup.origin;

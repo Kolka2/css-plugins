@@ -115,6 +115,7 @@ void Measure_OnThrow(int client, int nade) {
     g_ReturnAng[client] = g_LastThrow[client].angles;
     g_ReturnAng[client][2] = 0.0;
     g_bReturnPending[client] = true;
+    Timer_OnPluginTeleport(client, "flash check");
     TeleportEntity(client, g_CheckPos[client], g_CheckAng[client], view_as<float>({ 0.0, 0.0, 0.0 }));
     Movement_Clear(client);
     LogDebug("flash check: %N moved to the check point after a %s throw", client, g_NadeKey[nade]);
@@ -136,6 +137,7 @@ void Measure_OnReplay(int client, int nade) {
     GetClientEyeAngles(client, g_ReturnAng[client]);
     g_ReturnAng[client][2] = 0.0;
     g_bReturnPending[client] = true;
+    Timer_OnPluginTeleport(client, "flash check");
     TeleportEntity(client, g_CheckPos[client], g_CheckAng[client], view_as<float>({ 0.0, 0.0, 0.0 }));
     Movement_Clear(client);
     LogDebug("flash check: %N moved to the check point after a %s replay", client, g_NadeKey[nade]);
@@ -160,6 +162,7 @@ public Action Timer_CheckReturn(Handle timer, int userid) {
         return Plugin_Stop;
     }
     g_bReturnPending[client] = false;
+    Timer_OnPluginTeleport(client, "flash check return");
     TeleportEntity(client, g_ReturnPos[client], g_ReturnAng[client], view_as<float>({ 0.0, 0.0, 0.0 }));
     Movement_Clear(client);
     LogDebug("flash check: %N returned to the throw position", client);

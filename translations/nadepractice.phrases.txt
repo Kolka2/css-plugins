@@ -612,4 +612,61 @@
         "#format"   "{1:s},{2:.1f}"
         "en"        "{1} goes off {2} s after the throw"
     }
+    "Menu Spawns"
+    {
+        "en"        "Spawns"
+    }
+    "Spawn Menu Title"
+    {
+        "en"        "Spawns (number, distance from you)"
+    }
+    "Spawn Menu Empty"
+    {
+        "en"        "No spawn points on this map"
+    }
+    "Spawn Teleported"
+    {
+        "#format"   "{1:s},{2:d},{3:d}"
+        "en"        "Spawn {1} #{2} of {3}."
+    }
+    "Spawn Need Team"
+    {
+        "en"        "Join T or CT, or name the side: !spawn t / !spawn ct."
+    }
+    "Spawn None"
+    {
+        "#format"   "{1:s}"
+        "en"        "No {1} spawn points on this map."
+    }
+    "Spawn Bad Number"
+    {
+        "#format"   "{1:s},{2:d}"
+        "en"        "{1} spawns are numbered 1 to {2}."
+    }
+    "Timer Waiting"
+    {
+        "en"        "Timer: starts with your first step, stops when you stop."
+    }
+    "Timer2 Started"
+    {
+        "en"        "Timer started. Type !timer2 again to stop it."
+    }
+    "Timer Result"
+    {
+        "#format"   "{1:.2f}"
+        "en"        "Timer: {1} s."
+    }
+    "Timer Reset"
+    {
+        "en"        "Timer cancelled."
+    }
+    "Timer Hint Waiting"
+    {
+        "en"        "Timer: waiting for movement"
+    }
+    "Timer Hint Running"
+    {
+        "#format"   "{1:.2f}"
+        "en"        "Timer: {1} s"
+    }
 }

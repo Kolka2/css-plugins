@@ -227,6 +227,8 @@ ConVar g_cvFlashReturn;
 ConVar g_cvHeReport;
 ConVar g_cvHeArmorRatio;
 ConVar g_cvAirtimeReport;
+ConVar g_cvTimerSpeed;
+ConVar g_cvTimerStopTicks;
 ConVar g_cvRespawnDelay;
 ConVar g_cvRespawnAtDeath;
 
@@ -415,6 +417,8 @@ float g_ErrStrSum[MAXPLAYERS + 1][3];
 #include "nadepractice/hints.sp"
 #include "nadepractice/preview.sp"
 #include "nadepractice/measure.sp"
+#include "nadepractice/spawns.sp"
+#include "nadepractice/timer.sp"
 
 // ---------------------------------------------------------------------------
 // Loading
@@ -450,6 +454,8 @@ public void OnPluginStart() {
     g_cvFlashReturn   = CreateConVar("sm_nadepractice_flash_return", "1", "Flash check: return the player to the throw position after the blindness is over (each player can turn it off)", _, true, 0.0, true, 1.0);
     g_cvHeReport      = CreateConVar("sm_nadepractice_he_damage_report", "1", "Report the damage an HE would do (default for each player)", _, true, 0.0, true, 1.0);
     g_cvHeArmorRatio  = CreateConVar("sm_nadepractice_he_armor_ratio", "0.5", "HE damage estimate with armor: fraction of the damage that goes to health", _, true, 0.0, true, 1.0);
+    g_cvTimerSpeed     = CreateConVar("sm_nadepractice_timer_speed", "10.0", "!timer: horizontal speed above which the player counts as moving", _, true, 0.1, true, 250.0);
+    g_cvTimerStopTicks = CreateConVar("sm_nadepractice_timer_stop_ticks", "8", "!timer: ticks in a row below the speed threshold that count as a stop", _, true, 1.0, true, 128.0);
     g_cvAirtimeReport = CreateConVar("sm_nadepractice_airtime_report", "1", "Report the grenade air time after each detonation (default for each player)", _, true, 0.0, true, 1.0);
     g_cvRespawnDelay   = CreateConVar("sm_nadepractice_respawn_delay", "1.0", "Respawn dead players after this many seconds (0 = no respawn)", _, true, 0.0, true, 30.0);
     g_cvRespawnAtDeath = CreateConVar("sm_nadepractice_respawn_at_death", "0", "After a respawn, put the player back where they died, with the same view angles", _, true, 0.0, true, 1.0);
@@ -531,6 +537,8 @@ public void OnPluginStart() {
     Hints_Init();
     Preview_Init();
     Measure_Init();
+    Spawns_Init();
+    Timer_Init();
 
     // A mode reacts to game events in Post (ARCHITECTURE.md, section 4).
     HookEvent("player_spawn", Event_PlayerSpawn, EventHookMode_Post);
@@ -539,6 +547,7 @@ public void OnPluginStart() {
     if (g_bLateLoad) {
         PrecacheAssets();
         Lineups_Load();
+        Spawns_Load();
         for (int client = 1; client <= MaxClients; client++) {
             if (IsClientInGame(client)) {
                 OnClientPutInServer(client);
@@ -592,6 +601,7 @@ public void OnMapStart() {
     PrecacheAssets();
     ResetAllState();
     Lineups_Load();
+    Spawns_Load();
 }
 
 public void OnConfigsExecuted() {
@@ -632,6 +642,7 @@ public void OnEntityDestroyed(int entity) {
 public void OnPlayerRunCmdPost(int client, int buttons) {
     if (g_bActive && !IsFakeClient(client) && IsPlayerAlive(client)) {
         Movement_Record(client, buttons);
+        Timer_OnRunCmdPost(client);
     }
 }
 
@@ -674,6 +685,7 @@ void ResetClientState(int client) {
     g_NextReplay[client] = 0.0;
     g_bHasDeathPos[client] = false;
     Measure_ResetClient(client);
+    Timer_ResetClient(client);
     g_NtRef[client] = 0;
     g_TeWindowEnd[client] = 0.0;
     g_TeRateCheck[client] = 0.0;

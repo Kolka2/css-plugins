@@ -107,6 +107,7 @@ public void Event_PlayerDeath(Event event, const char[] name, bool dontBroadcast
     event.GetString("weapon", weapon, sizeof(weapon));
     int attacker = GetClientOfUserId(event.GetInt("attacker"));
 
+    Timer_Reset(client, "death");
     GetClientAbsOrigin(client, g_DeathPos[client]);
     GetClientEyeAngles(client, g_DeathAng[client]);
     g_bHasDeathPos[client] = g_cvRespawnAtDeath.BoolValue;
@@ -139,6 +140,7 @@ public void Event_PlayerTeam(Event event, const char[] name, bool dontBroadcast)
     }
     // A team change cancels a pending return to the death point.
     g_bHasDeathPos[client] = false;
+    Timer_Reset(client, "team change");
     if (event.GetInt("team") >= CS_TEAM_T) {
         // The event fires before the team actually changes: check in the next frame.
         RequestFrame(Frame_RespawnAfterTeam, userid);
@@ -466,6 +468,7 @@ void Practice_ToggleNoclip(int client, const char[] source) {
         return;
     }
     bool enable = !Practice_HasNoclip(client);
+    Timer_Reset(client, "noclip");
     SetEntityMoveType(client, enable ? MOVETYPE_NOCLIP : MOVETYPE_WALK);
     LogDebug("noclip: %N %s (%s)", client, enable ? "on" : "off", source);
     NP_Print(client, "%t", enable ? "Noclip On" : "Noclip Off");
@@ -497,6 +500,7 @@ void Practice_Back(int client) {
         return;
     }
     // To the start if there is one, with the throw angles.
+    Timer_OnPluginTeleport(client, "!back");
     float origin[3], angles[3];
     origin = g_LastThrow[client].hasStart ? g_LastThrow[client].startOrigin : g_LastThrow[client].origin;
     angles = g_LastThrow[client].angles;
@@ -599,6 +603,7 @@ void Practice_ShowMenu(int client, int firstItem = 0) {
     Menu_AddChoice(menu, client, "target", "Menu Target", g_TargetPhrase[g_HintTarget[client]]);
     Menu_AddPhrase(menu, client, "edit", "Menu Edit");
     Menu_AddPhrase(menu, client, "measure", "Menu Measure");
+    Menu_AddPhrase(menu, client, "spawns", "Menu Spawns");
     Menu_AddToggle(menu, client, "noflash", "Menu Noflash", g_bNoFlash[client]);
     Menu_AddPhrase(menu, client, "hands", "Menu Hands");
     Menu_AddPhrase(menu, client, "preverror", "Menu PrevError");
@@ -645,6 +650,12 @@ public int MenuHandler_Practice(Menu menu, MenuAction action, int client, int it
         Hints_CycleMarker(client);
     } else if (StrEqual(info, "target")) {
         Hints_CycleTarget(client);
+    } else if (StrEqual(info, "spawns")) {
+        g_PracticeMenuPos[client] = menu.Selection;
+        if (CanPractice(client)) {
+            Spawns_ShowMenu(client);
+            reopen = false;
+        }
     } else if (StrEqual(info, "measure")) {
         g_PracticeMenuPos[client] = menu.Selection;
         Measure_ShowMenu(client);

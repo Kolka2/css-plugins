@@ -131,6 +131,14 @@ void Hints_Toggle(int client) {
     }
 }
 
+// The timer started or stopped: update the panel at once; clear it if nothing is left to show.
+void Hints_OnTimerChanged(int client) {
+    g_NextHint[client] = 0.0;
+    if (!Timer_IsActive(client) && (!g_bHints[client] || g_SelectedLineup[client] == 0)) {
+        Hints_ClearText(client);
+    }
+}
+
 void Hints_CycleTarget(int client) {
     g_HintTarget[client] = (g_HintTarget[client] + 1) % TARGET_COUNT;
     g_NextHint[client] = 0.0;
@@ -286,7 +294,14 @@ void Hints_Frame(int client, float now) {
     }
     g_NextHint[client] = now + g_cvHintInterval.FloatValue;
 
+    // A running timer (stage 13.2) shares the hint panel with the lineup hint.
+    char timerLine[64];
+    Timer_HintLine(client, timerLine, sizeof(timerLine));
+
     if (!g_bHints[client] || g_SelectedLineup[client] == 0) {
+        if (timerLine[0] != '\0' && IsPlayerAlive(client)) {
+            Hints_ShowText(client, timerLine, false);
+        }
         return;
     }
     int index = Lineups_IndexById(g_SelectedLineup[client]);
@@ -412,6 +427,9 @@ void Hints_Frame(int client, float now) {
     }
     if (ready) {
         Format(text, sizeof(text), "%s\n%T", text, "Hint Ready", client, throwName);
+    }
+    if (timerLine[0] != '\0') {
+        Format(text, sizeof(text), "%s\n%s", text, timerLine);
     }
     Hints_ShowText(client, text, ready);
 
